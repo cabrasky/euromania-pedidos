@@ -1,3 +1,4 @@
+import { useState, useCallback, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 
@@ -17,7 +18,37 @@ const STEPS = [
   { num: 4, title: 'Pedido listo', desc: 'Usa el resumen consolidado para ver todo lo que hay que pedir, agrupado y con totales.' },
 ];
 
+const SCREENSHOTS = [
+  { src: '/screenshots/desktop.png', alt: 'Vista de escritorio', label: '🖥️ Vista de escritorio' },
+  { src: '/screenshots/liquidacion.png', alt: 'Liquidación de cuentas', label: '💰 Liquidación de cuentas' },
+  { src: '/screenshots/history.png', alt: 'Historial de comandas', label: '📋 Historial de comandas' },
+];
+
 function LandingPage() {
+  const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
+
+  const open = useCallback((i: number) => setSelectedIdx(i), []);
+  const close = useCallback(() => setSelectedIdx(null), []);
+  const prev = useCallback(() => setSelectedIdx(i => i !== null ? (i - 1 + SCREENSHOTS.length) % SCREENSHOTS.length : null), []);
+  const next = useCallback(() => setSelectedIdx(i => i !== null ? (i + 1) % SCREENSHOTS.length : null), []);
+
+  useEffect(() => {
+    if (!('keyboard' in navigator)) return; // SSR guard
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') close();
+      if (e.key === 'ArrowLeft') prev();
+      if (e.key === 'ArrowRight') next();
+    };
+    if (selectedIdx !== null) {
+      document.addEventListener('keydown', handler);
+      document.body.style.overflow = 'hidden';
+    }
+    return () => {
+      document.removeEventListener('keydown', handler);
+      document.body.style.overflow = '';
+    };
+  }, [selectedIdx, close, prev, next]);
+
   return (
     <div>
       <Helmet>
@@ -104,21 +135,37 @@ function LandingPage() {
         <div className="landing-container">
           <h2><i className="fas fa-camera" /> Así se ve</h2>
           <div className="landing-screenshots">
-            <div className="landing-screenshot">
-              <img src="/screenshots/desktop.png" alt="Vista de escritorio" loading="lazy" />
-              <div className="landing-screenshot-label">🖥️ Vista de escritorio</div>
-            </div>
-            <div className="landing-screenshot">
-              <img src="/screenshots/liquidacion.png" alt="Liquidación de cuentas" loading="lazy" />
-              <div className="landing-screenshot-label">💰 Liquidación de cuentas</div>
-            </div>
-            <div className="landing-screenshot">
-              <img src="/screenshots/history.png" alt="Historial de comandas" loading="lazy" />
-              <div className="landing-screenshot-label">📋 Historial de comandas</div>
-            </div>
+            {SCREENSHOTS.map((s, i) => (
+              <div className="landing-screenshot" key={i} onClick={() => open(i)} role="button" tabIndex={0} onKeyDown={e => e.key === 'Enter' && open(i)}>
+                <img src={s.src} alt={s.alt} loading="lazy" />
+                <div className="landing-screenshot-label">{s.label}</div>
+              </div>
+            ))}
           </div>
         </div>
       </section>
+
+      {/* Image Modal */}
+      {selectedIdx !== null && (
+        <div className="screenshot-modal-overlay" onClick={close} role="presentation">
+          <button className="screenshot-modal-close" onClick={close} aria-label="Cerrar">
+            <i className="fas fa-xmark" />
+          </button>
+          <button className="screenshot-modal-nav screenshot-modal-prev" onClick={e => { e.stopPropagation(); prev(); }} aria-label="Anterior">
+            <i className="fas fa-chevron-left" />
+          </button>
+          <button className="screenshot-modal-nav screenshot-modal-next" onClick={e => { e.stopPropagation(); next(); }} aria-label="Siguiente">
+            <i className="fas fa-chevron-right" />
+          </button>
+          <div className="screenshot-modal-content" onClick={e => e.stopPropagation()}>
+            <img src={SCREENSHOTS[selectedIdx].src} alt={SCREENSHOTS[selectedIdx].alt} />
+            <div className="screenshot-modal-label">{SCREENSHOTS[selectedIdx].label}</div>
+          </div>
+          <div className="screenshot-modal-counter">
+            {selectedIdx + 1} / {SCREENSHOTS.length}
+          </div>
+        </div>
+      )}
 
       {/* Legal */}
       <section className="landing-section landing-legal">

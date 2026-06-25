@@ -208,6 +208,61 @@
   border-top: 1px solid #e2e8f0;
 }
 
+/* ── Screenshot Modal ── */
+.screenshot-modal-overlay {
+  position: fixed; inset: 0; z-index: 9999;
+  background: rgba(0,0,0,0.85);
+  display: flex; align-items: center; justify-content: center;
+  animation: screenshot-fade-in 0.15s ease-out;
+}
+@keyframes screenshot-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes screenshot-zoom-in {
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: scale(1); }
+}
+.screenshot-modal-close {
+  position: absolute; top: 16px; right: 16px;
+  width: 40px; height: 40px; border-radius: 50%;
+  border: none; background: rgba(255,255,255,0.12);
+  color: #fff; font-size: 22px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .15s; z-index: 10;
+}
+.screenshot-modal-close:hover { background: rgba(255,255,255,0.25); }
+.screenshot-modal-nav {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  width: 48px; height: 48px; border-radius: 50%;
+  border: none; background: rgba(255,255,255,0.10);
+  color: #fff; font-size: 20px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .15s; z-index: 10;
+}
+.screenshot-modal-nav:hover { background: rgba(255,255,255,0.22); }
+.screenshot-modal-prev { left: 20px; }
+.screenshot-modal-next { right: 20px; }
+.screenshot-modal-content {
+  max-width: 92vw; max-height: 90vh;
+  display: flex; flex-direction: column;
+  animation: screenshot-zoom-in 0.2s ease-out;
+}
+.screenshot-modal-content img {
+  max-width: 92vw; max-height: 82vh;
+  object-fit: contain; border-radius: 12px;
+  display: block; box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+}
+.screenshot-modal-label {
+  text-align: center; margin-top: 14px;
+  font-size: 15px; font-weight: 600; color: #e2e8f0;
+}
+.screenshot-modal-counter {
+  position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%);
+  font-size: 13px; color: #94a3b8; letter-spacing: 0.5px;
+  background: rgba(0,0,0,0.5); padding: 5px 14px; border-radius: 20px;
+}
+
 @media (max-width: 640px) {
   .landing-hero { padding: 72px 20px 64px; }
   .landing-hero h1 { margin-bottom: 12px; }
@@ -219,4 +274,6 @@
   .landing-step { padding: 24px 20px; }
   .landing-legal-box { padding: 24px 20px; }
   .landing-footer { padding: 36px 20px 32px; }
+  .screenshot-modal-prev { left: 8px; width: 40px; height: 40px; font-size: 16px; }
+  .screenshot-modal-next { right: 8px; width: 40px; height: 40px; font-size: 16px; }
 }

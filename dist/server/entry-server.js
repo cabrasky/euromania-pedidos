@@ -4,7 +4,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
 import { jsxs, jsx, Fragment } from "react/jsx-runtime";
 import { Helmet, HelmetProvider } from "react-helmet-async";
 import { Link, Routes, Route, StaticRouter } from "react-router-dom";
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import QRCode from "qrcode";
 const FEATURES = [
   { icon: "fa-users", title: "Pedidos en grupo", desc: "Cada persona añade sus montaditos en su propio perfil. Todo en una misma sesión." },
@@ -20,7 +20,33 @@ const STEPS = [
   { num: 3, title: "Cada uno pide", desc: "Cada persona añade sus montaditos favoritos del menú. Todo se sincroniza al instante." },
   { num: 4, title: "Pedido listo", desc: "Usa el resumen consolidado para ver todo lo que hay que pedir, agrupado y con totales." }
 ];
+const SCREENSHOTS = [
+  { src: "/screenshots/desktop.png", alt: "Vista de escritorio", label: "🖥️ Vista de escritorio" },
+  { src: "/screenshots/liquidacion.png", alt: "Liquidación de cuentas", label: "💰 Liquidación de cuentas" },
+  { src: "/screenshots/history.png", alt: "Historial de comandas", label: "📋 Historial de comandas" }
+];
 function LandingPage() {
+  const [selectedIdx, setSelectedIdx] = useState(null);
+  const open = useCallback((i) => setSelectedIdx(i), []);
+  const close = useCallback(() => setSelectedIdx(null), []);
+  const prev = useCallback(() => setSelectedIdx((i) => i !== null ? (i - 1 + SCREENSHOTS.length) % SCREENSHOTS.length : null), []);
+  const next = useCallback(() => setSelectedIdx((i) => i !== null ? (i + 1) % SCREENSHOTS.length : null), []);
+  useEffect(() => {
+    if (!("keyboard" in navigator)) return;
+    const handler = (e) => {
+      if (e.key === "Escape") close();
+      if (e.key === "ArrowLeft") prev();
+      if (e.key === "ArrowRight") next();
+    };
+    if (selectedIdx !== null) {
+      document.addEventListener("keydown", handler);
+      document.body.style.overflow = "hidden";
+    }
+    return () => {
+      document.removeEventListener("keydown", handler);
+      document.body.style.overflow = "";
+    };
+  }, [selectedIdx, close, prev, next]);
   return /* @__PURE__ */ jsxs("div", { children: [
     /* @__PURE__ */ jsxs(Helmet, { children: [
       /* @__PURE__ */ jsx("title", { children: "Euromania — Pedidos Colaborativos en Tiempo Real" }),
@@ -95,21 +121,31 @@ function LandingPage() {
         /* @__PURE__ */ jsx("i", { className: "fas fa-camera" }),
         " Así se ve"
       ] }),
-      /* @__PURE__ */ jsxs("div", { className: "landing-screenshots", children: [
-        /* @__PURE__ */ jsxs("div", { className: "landing-screenshot", children: [
-          /* @__PURE__ */ jsx("img", { src: "/screenshots/desktop.png", alt: "Vista de escritorio", loading: "lazy" }),
-          /* @__PURE__ */ jsx("div", { className: "landing-screenshot-label", children: "🖥️ Vista de escritorio" })
-        ] }),
-        /* @__PURE__ */ jsxs("div", { className: "landing-screenshot", children: [
-          /* @__PURE__ */ jsx("img", { src: "/screenshots/liquidacion.png", alt: "Liquidación de cuentas", loading: "lazy" }),
-          /* @__PURE__ */ jsx("div", { className: "landing-screenshot-label", children: "💰 Liquidación de cuentas" })
-        ] }),
-        /* @__PURE__ */ jsxs("div", { className: "landing-screenshot", children: [
-          /* @__PURE__ */ jsx("img", { src: "/screenshots/history.png", alt: "Historial de comandas", loading: "lazy" }),
-          /* @__PURE__ */ jsx("div", { className: "landing-screenshot-label", children: "📋 Historial de comandas" })
-        ] })
-      ] })
+      /* @__PURE__ */ jsx("div", { className: "landing-screenshots", children: SCREENSHOTS.map((s, i) => /* @__PURE__ */ jsxs("div", { className: "landing-screenshot", onClick: () => open(i), role: "button", tabIndex: 0, onKeyDown: (e) => e.key === "Enter" && open(i), children: [
+        /* @__PURE__ */ jsx("img", { src: s.src, alt: s.alt, loading: "lazy" }),
+        /* @__PURE__ */ jsx("div", { className: "landing-screenshot-label", children: s.label })
+      ] }, i)) })
     ] }) }),
+    selectedIdx !== null && /* @__PURE__ */ jsxs("div", { className: "screenshot-modal-overlay", onClick: close, role: "presentation", children: [
+      /* @__PURE__ */ jsx("button", { className: "screenshot-modal-close", onClick: close, "aria-label": "Cerrar", children: /* @__PURE__ */ jsx("i", { className: "fas fa-xmark" }) }),
+      /* @__PURE__ */ jsx("button", { className: "screenshot-modal-nav screenshot-modal-prev", onClick: (e) => {
+        e.stopPropagation();
+        prev();
+      }, "aria-label": "Anterior", children: /* @__PURE__ */ jsx("i", { className: "fas fa-chevron-left" }) }),
+      /* @__PURE__ */ jsx("button", { className: "screenshot-modal-nav screenshot-modal-next", onClick: (e) => {
+        e.stopPropagation();
+        next();
+      }, "aria-label": "Siguiente", children: /* @__PURE__ */ jsx("i", { className: "fas fa-chevron-right" }) }),
+      /* @__PURE__ */ jsxs("div", { className: "screenshot-modal-content", onClick: (e) => e.stopPropagation(), children: [
+        /* @__PURE__ */ jsx("img", { src: SCREENSHOTS[selectedIdx].src, alt: SCREENSHOTS[selectedIdx].alt }),
+        /* @__PURE__ */ jsx("div", { className: "screenshot-modal-label", children: SCREENSHOTS[selectedIdx].label })
+      ] }),
+      /* @__PURE__ */ jsxs("div", { className: "screenshot-modal-counter", children: [
+        selectedIdx + 1,
+        " / ",
+        SCREENSHOTS.length
+      ] })
+    ] }),
     /* @__PURE__ */ jsx("section", { className: "landing-section landing-legal", children: /* @__PURE__ */ jsx("div", { className: "landing-container", children: /* @__PURE__ */ jsxs("div", { className: "landing-legal-box", children: [
       /* @__PURE__ */ jsx("i", { className: "fas fa-scale-balanced" }),
       /* @__PURE__ */ jsx("h3", { children: "Aviso importante" }),
