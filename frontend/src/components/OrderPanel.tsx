@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Person } from '../types';
 import { CATEGORY_LABELS } from '../data/menuData';
 import { getKey, getPrice, parsePrice } from '../services/menuStore';
@@ -14,7 +14,26 @@ interface Props {
 }
 
 function OrderPanel({ currentPerson, persons, onChangeQty, onRemoveItem, onClear, onExport, onExportConsolidated }: Props) {
-  const [collapsed, setCollapsed] = useState(true);
+  const MOBILE_BREAKPOINT = 860;
+  const [collapsed, setCollapsed] = useState(() => window.innerWidth < MOBILE_BREAKPOINT);
+  const [userToggled, setUserToggled] = useState(false);
+
+  useEffect(() => {
+    const onResize = () => {
+      // Only auto-update if user hasn't manually toggled, or crossing breakpoint
+      const isMobile = window.innerWidth < MOBILE_BREAKPOINT;
+      if (!userToggled) {
+        setCollapsed(isMobile);
+      }
+    };
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, [userToggled]);
+
+  const toggleCollapse = () => {
+    setUserToggled(true);
+    setCollapsed(prev => !prev);
+  };
   const items = useMemo(() => currentPerson ? Object.values(currentPerson.items) : [], [currentPerson]);
   const count = useMemo(() => items.reduce((s, o) => s + o.qty, 0), [items]);
   const personTotal = useMemo(() =>
@@ -43,7 +62,7 @@ function OrderPanel({ currentPerson, persons, onChangeQty, onRemoveItem, onClear
   return (
     <div className={`order-panel ${collapsed ? 'collapsed' : ''}`}>
       {/* Mobile drag handle */}
-      <button className="drag-handle" onClick={() => setCollapsed(!collapsed)}
+      <button className="drag-handle" onClick={toggleCollapse}
         aria-label={collapsed ? 'Abrir pedido' : 'Cerrar pedido'}>
         <span className="drag-handle-bar"></span>
       </button>

@@ -1757,7 +1757,23 @@ function MenuGrid({ persons, currentPersonIdx, activeCat, searchTerm, onSetCateg
   ] });
 }
 function OrderPanel({ currentPerson, persons, onChangeQty, onRemoveItem, onClear, onExport, onExportConsolidated }) {
-  const [collapsed, setCollapsed] = useState(true);
+  const MOBILE_BREAKPOINT = 860;
+  const [collapsed, setCollapsed] = useState(() => window.innerWidth < MOBILE_BREAKPOINT);
+  const [userToggled, setUserToggled] = useState(false);
+  useEffect(() => {
+    const onResize = () => {
+      const isMobile = window.innerWidth < MOBILE_BREAKPOINT;
+      if (!userToggled) {
+        setCollapsed(isMobile);
+      }
+    };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [userToggled]);
+  const toggleCollapse = () => {
+    setUserToggled(true);
+    setCollapsed((prev) => !prev);
+  };
   const items = useMemo(() => currentPerson ? Object.values(currentPerson.items) : [], [currentPerson]);
   const count = useMemo(() => items.reduce((s, o) => s + o.qty, 0), [items]);
   const personTotal = useMemo(
@@ -1785,7 +1801,7 @@ function OrderPanel({ currentPerson, persons, onChangeQty, onRemoveItem, onClear
       "button",
       {
         className: "drag-handle",
-        onClick: () => setCollapsed(!collapsed),
+        onClick: toggleCollapse,
         "aria-label": collapsed ? "Abrir pedido" : "Cerrar pedido",
         children: /* @__PURE__ */ jsx("span", { className: "drag-handle-bar" })
       }
