@@ -18,6 +18,6 @@ export default defineConfig({
     },
   },
   ssr: {
-    noExternal: true,
+    noExternal: [],
   },
 })

@@ -18,6 +18,8 @@ global.window = global.window || {
   document: {
     documentElement: { style: {} },
     createElement: () => ({ setAttribute: () => {}, className: '', style: {} }),
+    createTextNode: () => ({}),
+    getElementsByTagName: () => [],
     querySelector: () => null,
     querySelectorAll: () => [],
     getElementById: () => null,
@@ -44,14 +46,16 @@ Object.defineProperty(global, 'navigator', { value: global.window.navigator, wri
 global.location = global.window.location;
 global.localStorage = global.window.localStorage;
 global.sessionStorage = global.window.sessionStorage;
+// requestAnimationFrame globally for bundled react-helmet-async
+global.requestAnimationFrame = (cb) => setTimeout(cb, 0);
+global.cancelAnimationFrame = (id) => clearTimeout(id);
 
 // Import renderToString separately (Vite externalizes react-dom/server)
 const { renderToString } = await import('react-dom/server');
 
 // Ensure Node can resolve SSR bundle dependencies by adding the project root
 // as a module search path
-const rootDir = path.resolve(__dirname, '..');
-const searchPath = path.resolve(rootDir, 'node_modules');
+const searchPath = path.resolve(__dirname, 'node_modules');
 // Create a symlink if it doesn't exist: dist/server/node_modules -> frontend/node_modules
 const targetLink = path.resolve(__dirname, '../dist/server/node_modules');
 if (!existsSync(targetLink)) {
@@ -59,7 +63,10 @@ if (!existsSync(targetLink)) {
     symlinkSync(searchPath, targetLink, 'dir');
     console.log(`[ssr] Created module symlink: ${targetLink}`);
   } catch (err) {
-    console.error(`[ssr] Failed to create symlink: ${err.message}`);
+    // Symlink might already exist from a previous run
+    if (err.code !== 'EEXIST') {
+      console.error(`[ssr] Failed to create symlink: ${err.message}`);
+    }
   }
 }
 
