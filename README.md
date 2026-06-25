@@ -29,18 +29,32 @@
 
 ---
 
+## 📸 Capturas
+
+<p align="center">
+  <img src="frontend/public/screenshots/desktop.png" width="49%" alt="Vista de escritorio">
+  <img src="frontend/public/screenshots/splitwise.png" width="49%" alt="Liquidación Splitwise">
+  <br>
+  <img src="frontend/public/screenshots/history.png" width="49%" alt="Historial de comandas">
+  <img src="frontend/public/screenshots/landing.png" width="49%" alt="Landing page">
+</p>
+
+---
+
 ## ✨ Características
 
 | Característica | Descripción |
 |---|---|
-| **Pedidos en grupo** | Cada persona añade sus montaditos en su propio perfil. Todo en una misma sesión. |
-| **Tiempo real** | Los cambios se ven al instante gracias a WebSockets. Nada de recargar la página. |
-| **Código QR** | Comparte la sesión al instante. Escanea y únete sin escribir códigos largos. |
-| **Resumen consolidado** | Agrupa todos los pedidos por producto para hacer el pedido al restaurante de un vistazo. |
-| **Sin registro** | Solo necesitas un nombre. No pedimos email, teléfono ni contraseñas. |
-| **Menú oficial Marzo 2026** | 10 categorías de montaditos + bebidas + extras con precios actualizados. |
-| **Estadísticas anónimas** | Panel admin con métricas de uso totalmente anonimizadas. |
-| **SSR (Server-Side Rendering)** | SEO optimizado con renderizado en servidor Node.js. |
+| 🧑‍🤝‍🧑 **Pedidos en grupo** | Cada persona añade sus montaditos en su propio perfil. Todo en una misma sesión. |
+| ⚡ **Tiempo real** | Los cambios se ven al instante gracias a WebSockets. Nada de recargar la página. |
+| 📱 **Responsive** | Layout de escritorio con sidebar completa y móvil con FAB + overlay a pantalla completa. |
+| 📋 **Resumen consolidado** | Agrupa todos los pedidos por producto para hacer el pedido al restaurante de un vistazo. |
+| 🧾 **Historial de comandas** | Cada "Hacer pedido" guarda el snapshot de la ronda. Historial expandible con totales y quién pagó. |
+| 💰 **Splitwise / Liquidación** | Modal con desglose por persona y liquidación sugerida basada en quién pagó cada ronda. Copia resumen o CSV. |
+| 🪄 **Sin registro** | Solo necesitas un nombre. No pedimos email, teléfono ni contraseñas. |
+| 📊 **Estadísticas anónimas** | Panel admin con métricas de uso totalmente anonimizadas. |
+| 🌐 **SSR (Server-Side Rendering)** | SEO optimizado con renderizado en servidor Node.js. |
+| 🔒 **Seguridad** | Rate limiting, IP blocking, Let's Encrypt SSL, WebSocket limits. |
 
 ## 🚀 Stack técnico
 
@@ -49,7 +63,7 @@
 | **Frontend** | React 18 + TypeScript + Vite 6 |
 | **Backend** | FastAPI (Python 3.11) + asyncpg |
 | **SSR** | Node.js Express con React 18 server-side |
-| **Base de datos** | PostgreSQL 16 con pgvector |
+| **Base de datos** | PostgreSQL 16 |
 | **Tiempo real** | WebSockets (FastAPI nativo) |
 | **Proxy** | nginx + Let's Encrypt SSL |
 | **Host** | Servidor Linux, systemd |
@@ -58,155 +72,92 @@
 
 ```
 euromania-pedidos/
-├── frontend/                  # React + Vite
+├── frontend/
 │   ├── src/
-│   │   ├── components/        # Componentes React
-│   │   │   ├── LandingPage.tsx
-│   │   │   ├── LoginScreen.tsx
-│   │   │   ├── Header.tsx
-│   │   │   ├── PersonBar.tsx
-│   │   │   ├── MenuGrid.tsx
-│   │   │   ├── OrderPanel.tsx
-│   │   │   ├── AdminPanel.tsx
-│   │   │   ├── QRModal.tsx
-│   │   │   ├── PrivacyModal.tsx
-│   │   │   └── ToastContainer.tsx
-│   │   ├── types.ts           # Tipos y menú
-│   │   ├── api.ts             # API client
-│   │   ├── websocket.ts       # WebSocket client
-│   │   ├── App.tsx            # Router
-│   │   ├── OrderApp.tsx       # App principal
-│   │   ├── entry-client.tsx   # Client entry
-│   │   └── entry-server.tsx   # SSR entry
-│   ├── public/                # Static assets
-│   ├── ssr-server.mjs         # SSR server (Node.js)
-│   ├── vite.config.ts
+│   │   ├── components/
+│   │   │   ├── modals/
+│   │   │   │   ├── OrderViewModal.tsx      # Vista por persona / consolidada
+│   │   │   │   ├── OrderHistoryModal.tsx   # Historial de comandas
+│   │   │   │   ├── SplitwiseModal.tsx      # Liquidación de cuentas
+│   │   │   │   ├── QRModal.tsx             # Código QR para compartir
+│   │   │   │   └── PrivacyModal.tsx        # Aviso legal / privacidad
+│   │   │   ├── OrderPanel.tsx              # Sidebar / FAB overlay
+│   │   │   ├── HistoryPanel.tsx            # Historial inline (escritorio)
+│   │   │   ├── Header.tsx, PersonBar.tsx, MenuGrid.tsx
+│   │   │   └── ui/                         # Componentes reutilizables
+│   │   ├── pages/OrderPage.tsx             # Página principal de pedidos
+│   │   ├── services/api.ts, websocket.ts, menuStore.ts
+│   │   ├── data/menuData.ts                # Menú estático fallback
+│   │   └── styles/shared.css               # Todo el CSS
+│   ├── public/landing.html                 # Landing page SEO
 │   └── package.json
-├── server.py                  # FastAPI backend
-├── robots.txt
-├── sitemap.xml
-├── banned_ips.json
-└── README.md
+├── server.py                               # FastAPI + WebSockets
+├── ssr-server.mjs                          # Node SSR server
+├── requirements.txt
+└── deploy.sh / apply-schedule.py           # Scripts de despliegue
 ```
 
-## 🛠️ Desarrollo local
+## 🧠 Cómo funciona
+
+1. **Crea una sesión** — Entra en la app, pon tu nombre y crea una sesión. Se genera un código único de 6 caracteres.
+2. **Comparte el código** — Envía el código o escanea el QR con el móvil. Todos se conectan a la misma sesión.
+3. **Cada uno pide** — Cada persona añade sus productos desde el menú. Los cambios se ven al instante en todos los dispositivos.
+4. **Revisa y pide** — Usa el resumen por persona o consolidado para ver el pedido completo. Haz "Pedido" para guardar la ronda.
+5. **Liquida** — Usa el modal Splitwise para calcular quién debe a quién según quién pagó cada ronda.
+
+## 🐳 Despliegue
 
 ### Requisitos
 
 - Python 3.11+
 - Node.js 18+
-- PostgreSQL 16+
-- Redis (opcional, para rate limiting avanzado)
+- PostgreSQL 16
 
-### Backend
+### Instalación
 
 ```bash
-# Clonar el repositorio
-git clone https://github.com/cabrasky/euromania-pedidos.git
-cd euromania-pedidos
-
-# Crear entorno virtual
-python3 -m venv venv
-source venv/bin/activate
-
-# Instalar dependencias
+# Backend
 pip install -r requirements.txt
-
-# Configurar base de datos
-createdb euromania
-psql euromania < schema.sql
-
-# Configurar variables de entorno
-export EUROMANIA_DB="postgresql://tu_usuario@localhost:5432/euromania"
-export EUROMANIA_ADMIN_PASSWORD="tu_contraseña_admin"
-
-# Iniciar servidor
 python server.py
-```
 
-### Frontend
-
-```bash
+# Frontend (desarrollo)
 cd frontend
 npm install
-npm run dev        # Desarrollo (hot reload)
-npm run build      # Producción
+npm run dev
+
+# Frontend (producción)
+npm run build
+node ../ssr-server.mjs
 ```
 
-### SSR (opcional, para SEO)
+### Variables de entorno
 
-```bash
-cd frontend
-npm run build                    # Primero construir el bundle
-node ssr-server.mjs              # Iniciar SSR server (puerto 8120)
-```
-
-## 🌐 API
-
-### Sesiones
-
-| Método | Ruta | Descripción |
+| Variable | Descripción | Defecto |
 |---|---|---|
-| `POST` | `/api/session` | Crear nueva sesión |
-| `POST` | `/api/session/{code}/join` | Obtener datos de sesión |
-| `POST` | `/api/session/{code}/person` | Añadir persona |
-| `DELETE` | `/api/session/{code}/person/{name}` | Eliminar persona |
-| `PUT` | `/api/session/{code}/person/{name}/item` | Añadir/actualizar artículo |
-| `DELETE` | `/api/session/{code}/person/{name}/item/{key}` | Eliminar artículo |
-| `DELETE` | `/api/session/{code}/person/{name}/clear` | Vaciar pedido de persona |
-| `GET` | `/api/sessions` | Listar sesiones activas (admin) |
+| `EUROMANIA_DB` | DSN de PostgreSQL | `postgresql://euromania@localhost:5432/euromania` |
+| `EUROMANIA_HOST` | Host del servidor | `0.0.0.0` |
+| `EUROMANIA_PORT` | Puerto del servidor | `8112` |
+| `EUROMANIA_MAX_RPM` | Límite de req/min por IP | `120` |
+| `EUROMANIA_SESSION_TTL` | Tiempo de vida sesión inactiva (s) | `86400` (24h) |
+| `EUROMANIA_SESSION_MAX_AGE` | Tiempo máximo de sesión (s) | `432000` (5 días) |
+| `EUROMANIA_ADMIN_PASSWORD` | Contraseña panel admin | (generada) |
+| `EUROMANIA_TRUSTED_PROXIES` | CIDRs de proxies confiables | `192.168.0.0/16,...` |
 
-### WebSocket
+## 🤝 Contribuciones
 
-| Ruta | Descripción |
-|---|---|
-| `ws://host/ws/{code}` | Conectarse a una sesión. Recibe eventos en tiempo real. |
+Las contribuciones son bienvenidas. Este es un proyecto personal, pero si tienes ideas, bugs o mejoras:
 
-### Admin (requiere token Bearer)
-
-| Método | Ruta | Descripción |
-|---|---|---|
-| `POST` | `/api/admin/login` | Autenticarse (recibe token) |
-| `GET` | `/api/admin/stats` | Estadísticas anonimizadas |
-| `GET` | `/api/admin/bans` | Listar IPs bloqueadas |
-| `POST` | `/api/admin/bans` | Bloquear IP |
-| `DELETE` | `/api/admin/bans/{ip}` | Desbloquear IP |
-
-## 🔒 Seguridad
-
-- Rate limiting por IP (120 req/min)
-- Auto-ban por violaciones de rate limit
-- Límites de WebSocket por IP/sesión/global
-- Validación y sanitización de entrada
-- Cabeceras de seguridad (HSTS, CSP, XSS Protection)
-- Contraseña admin configurable vía variable de entorno
-- Protección contra path traversal
-
-## 🤝 Contribuir
-
-¡Las contribuciones son bienvenidas!
-
-1. Abre un [issue](https://github.com/cabrasky/euromania-pedidos/issues) para discutir cambios grandes
-2. Haz fork del repo
-3. Crea una rama: `git checkout -b feature/mi-mejora`
-4. Haz commit: `git commit -m 'Añade mi mejora'`
-5. Push: `git push origin feature/mi-mejora`
-6. Abre un Pull Request
+1. Abre un [issue](https://github.com/cabrasky/euromania-pedidos/issues/new)
+2. Haz un fork y envía un PR
+3. O simplemente [escribe un mensaje](https://github.com/cabrasky)
 
 ## 📄 Licencia
 
-Este proyecto es **código abierto** bajo la licencia MIT.
-
-## ⚠️ Aviso
-
-Esta aplicación es un **proyecto independiente y no oficial**. No está vinculada, patrocinada ni aprobada por **100 Montaditos®** ni por **Euromania®**. Todos los nombres de productos y marcas registradas pertenecen a sus respectivos propietarios.
+MIT — Ver el archivo [LICENSE](LICENSE) para más detalles.
 
 ---
 
 <p align="center">
-  <a href="https://euromania.cabrasky.net/">🌐 Probar la app</a>
-  ·
-  <a href="https://github.com/cabrasky/euromania-pedidos/issues">💬 Dejar feedback</a>
-  ·
-  <a href="https://github.com/cabrasky">👤 Desarrollado por cabrasky</a>
+  <sub>Proyecto independiente. No afiliado a 100 Montaditos® ni Euromania®.</sub><br>
+  <sub>Desarrollado por <a href="https://github.com/cabrasky">cabrasky</a> — Javier Mateos Mata</sub>
 </p>

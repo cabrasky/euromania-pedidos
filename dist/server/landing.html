@@ -154,6 +154,29 @@
 .landing-oss-box p { margin: 4px 0; color: #94a3b8; }
 .landing-oss-box a { color: #6ee7b7; font-weight: 600; }
 .landing-oss-box a:hover { text-decoration: underline; }
+
+.landing-screenshots {
+  display: flex; flex-wrap: wrap; gap: 12px; justify-content: center;
+  margin: 24px 0;
+}
+.landing-screenshot {
+  flex: 1; min-width: 240px; max-width: 460px;
+  border-radius: 14px; overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.03);
+  transition: transform .2s, box-shadow .2s;
+}
+.landing-screenshot:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+}
+.landing-screenshot img {
+  width: 100%; display: block;
+}
+.landing-screenshot-label {
+  padding: 10px 14px; font-size: 12px; color: #94a3b8; font-weight: 600;
+  background: rgba(0,0,0,0.2);
+}
   </style>
 </head>
 <body>
@@ -233,6 +256,27 @@
           <div class="landing-step-num">4</div>
           <h3>Pedido listo</h3>
           <p>Usa el resumen consolidado para ver todo lo que hay que pedir, agrupado y con totales.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Screenshots -->
+  <section class="landing-section" style="padding-top: 0;">
+    <div class="landing-container">
+      <h2><i class="fas fa-camera"></i> Así se ve</h2>
+      <div class="landing-screenshots">
+        <div class="landing-screenshot">
+          <img src="/screenshots/desktop.png" alt="Vista de escritorio" loading="lazy">
+          <div class="landing-screenshot-label">🖥️ Vista de escritorio</div>
+        </div>
+        <div class="landing-screenshot">
+          <img src="/screenshots/splitwise.png" alt="Liquidación Splitwise" loading="lazy">
+          <div class="landing-screenshot-label">💰 Liquidación de cuentas</div>
+        </div>
+        <div class="landing-screenshot">
+          <img src="/screenshots/history.png" alt="Historial de comandas" loading="lazy">
+          <div class="landing-screenshot-label">📋 Historial de comandas</div>
         </div>
       </div>
     </div>
