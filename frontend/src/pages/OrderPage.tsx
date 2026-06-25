@@ -294,11 +294,8 @@ function OrderPage() {
 
   // Show Splitwise view
   const showSplitwiseView = useCallback(() => {
-    if (persons.length === 0) { addToast('El pedido está vacío', 'info'); return; }
-    const hasItems = persons.some(p => Object.keys(p.items).length > 0);
-    if (!hasItems) { addToast('El pedido está vacío', 'info'); return; }
     setShowSplitwise(true);
-  }, [persons, addToast]);
+  }, []);
 
   // Place order — save to history and clear only current user's items
   const handlePlaceOrder = useCallback(async () => {

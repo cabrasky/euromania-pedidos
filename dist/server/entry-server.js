@@ -2495,50 +2495,103 @@ function HistoryPanel({ sessionCode }) {
 }
 function SplitwiseModal({ open, onClose, persons, sessionCode }) {
   const [copied, setCopied] = useState(null);
-  const { personTotals, groupTotal, average, settlements } = useMemo(() => {
-    const hasItems = persons.filter((p) => Object.keys(p.items).length > 0);
-    const pts = hasItems.map((p) => {
-      const items = Object.values(p.items).filter((o) => o.qty > 0).map((o) => ({
-        name: o.item.name || "?",
-        qty: o.qty || 0,
-        price: parsePrice(getPrice(o.category, o.item)) * (o.qty || 0)
-      }));
-      const total = items.reduce((s2, i) => s2 + i.price, 0);
-      return { name: p.name, items, total };
+  const [historyOrders, setHistoryOrders] = useState([]);
+  const [loading, setLoading] = useState(false);
+  useEffect(() => {
+    if (!open || !sessionCode) return;
+    setLoading(true);
+    getOrderHistory(sessionCode).then((data) => setHistoryOrders(data)).catch(() => setHistoryOrders([])).finally(() => setLoading(false));
+  }, [open, sessionCode]);
+  const { personTotals, groupTotal, average, settlements, allNames } = useMemo(() => {
+    const totals = {};
+    historyOrders.forEach((order) => {
+      (order.items || []).forEach((item) => {
+        const person = item.person || "?";
+        const key = item.item_code || item.item_name;
+        if (!totals[person]) totals[person] = {};
+        if (!totals[person][key]) {
+          totals[person][key] = { name: item.item_name, qty: 0, price: 0 };
+        }
+        totals[person][key].qty += item.qty || 0;
+        totals[person][key].price += (item.price || 0) * (item.qty || 0);
+      });
     });
-    const gt = pts.reduce((s2, p) => s2 + p.total, 0);
+    persons.forEach((p) => {
+      Object.entries(p.items).forEach(([key, o]) => {
+        const item = o;
+        if (!item.qty || item.qty <= 0) return;
+        const currentPrice = parsePrice(getPrice(item.category, item.item)) * item.qty;
+        if (!totals[p.name]) totals[p.name] = {};
+        if (!totals[p.name][key]) {
+          totals[p.name][key] = { name: item.item.name || key, qty: 0, price: 0 };
+        }
+        totals[p.name][key].qty += item.qty || 0;
+        totals[p.name][key].price += currentPrice;
+      });
+    });
+    const allNamesSet = /* @__PURE__ */ new Set();
+    const pts = Object.entries(totals).map(([name, items]) => {
+      allNamesSet.add(name);
+      const itemList = Object.values(items).map((i) => ({
+        name: i.name,
+        qty: i.qty,
+        price: Math.round(i.price * 100) / 100
+      }));
+      const total = itemList.reduce((s2, i) => s2 + i.price, 0);
+      return { name, items: itemList, total: Math.round(total * 100) / 100 };
+    });
+    persons.forEach((p) => {
+      if (!totals[p.name]) allNamesSet.add(p.name);
+    });
+    historyOrders.forEach((order) => {
+      (order.items || []).forEach((item) => {
+        if (item.person) allNamesSet.add(item.person);
+      });
+    });
+    const gt = Math.round(pts.reduce((s2, p) => s2 + p.total, 0) * 100) / 100;
     const n = pts.length || 1;
-    const avg = gt / n;
+    const avg = Math.round(gt / n * 100) / 100;
     const debtors = [];
     const creditors = [];
     pts.forEach((p) => {
-      const diff = p.total - avg;
+      const diff = Math.round((p.total - avg) * 100) / 100;
       if (diff < -0.01) debtors.push({ name: p.name, debt: Math.abs(diff) });
       else if (diff > 0.01) creditors.push({ name: p.name, credit: diff });
     });
     const s = [];
     let di = 0, ci = 0;
     while (di < debtors.length && ci < creditors.length) {
-      const amount = Math.min(debtors[di].debt, creditors[ci].credit);
+      const amount = Math.round(Math.min(debtors[di].debt, creditors[ci].credit) * 100) / 100;
       if (amount > 0.01) {
         s.push({
           from: debtors[di].name,
           to: creditors[ci].name,
-          amount: Math.round(amount * 100) / 100
+          amount
         });
       }
-      debtors[di].debt -= amount;
-      creditors[ci].credit -= amount;
+      debtors[di].debt = Math.round((debtors[di].debt - amount) * 100) / 100;
+      creditors[ci].credit = Math.round((creditors[ci].credit - amount) * 100) / 100;
       if (debtors[di].debt < 0.01) di++;
       if (creditors[ci].credit < 0.01) ci++;
     }
-    return { personTotals: pts, groupTotal: gt, average: avg, settlements: s };
-  }, [persons]);
+    return {
+      personTotals: pts,
+      groupTotal: gt,
+      average: avg,
+      settlements: s,
+      allNames: Array.from(allNamesSet)
+    };
+  }, [historyOrders, persons]);
   const formatPrice = (n) => n.toFixed(2).replace(".", ",") + "€";
   const getSummaryText = () => {
+    let rounds = historyOrders.length;
+    const hasActive = persons.some((p) => Object.keys(p.items).length > 0);
+    if (hasActive) rounds += 1;
     let text = `🛵 Euromania · ${sessionCode}
 `;
-    text += `━`.repeat(24) + "\n\n";
+    text += `📋 ${rounds} ronda${rounds !== 1 ? "s" : ""}
+`;
+    text += `━`.repeat(28) + "\n\n";
     personTotals.forEach((pt) => {
       text += `👤 ${pt.name}: ${formatPrice(pt.total)}
 `;
@@ -2548,7 +2601,7 @@ function SplitwiseModal({ open, onClose, persons, sessionCode }) {
       });
       text += "\n";
     });
-    text += `━`.repeat(24) + "\n";
+    text += `━`.repeat(28) + "\n";
     text += `💰 Total: ${formatPrice(groupTotal)}
 `;
     text += `👥 ${personTotals.length} personas · Media: ${formatPrice(average)}/persona
@@ -2572,7 +2625,7 @@ function SplitwiseModal({ open, onClose, persons, sessionCode }) {
     lines.push("Persona,Producto,Cantidad,Precio Unitario,Total");
     personTotals.forEach((pt) => {
       pt.items.forEach((i) => {
-        const unitPrice = i.qty > 0 ? i.price / i.qty : 0;
+        const unitPrice = i.qty > 0 ? Math.round(i.price / i.qty * 100) / 100 : 0;
         lines.push(
           `${pt.name},"${i.name}",${i.qty},${unitPrice.toFixed(2).replace(".", ",")}€,${i.price.toFixed(2).replace(".", ",")}€`
         );
@@ -2617,97 +2670,120 @@ function SplitwiseModal({ open, onClose, persons, sessionCode }) {
       /* @__PURE__ */ jsx("h2", { style: { color: "#fff" }, children: "Splitwise / Liquidación" }),
       /* @__PURE__ */ jsx("button", { className: "modal-close", onClick: onClose, style: { color: "#94a3b8" }, children: /* @__PURE__ */ jsx("i", { className: "fas fa-xmark" }) })
     ] }),
-    /* @__PURE__ */ jsxs("div", { className: "modal-body splitwise-body", children: [
+    /* @__PURE__ */ jsx("div", { className: "modal-body splitwise-body", children: loading ? /* @__PURE__ */ jsxs("div", { style: { textAlign: "center", padding: 40, color: "#94a3b8" }, children: [
+      /* @__PURE__ */ jsx("i", { className: "fas fa-spinner fa-spin", style: { fontSize: 24 } }),
+      /* @__PURE__ */ jsx("p", { style: { marginTop: 10 }, children: "Cargando historial..." })
+    ] }) : /* @__PURE__ */ jsxs(Fragment, { children: [
       /* @__PURE__ */ jsx("div", { className: "sw-header", children: /* @__PURE__ */ jsxs("span", { className: "sw-session", children: [
         "🛵 Euromania · ",
-        sessionCode
+        sessionCode,
+        " · ",
+        historyOrders.length,
+        " comanda",
+        historyOrders.length !== 1 ? "s" : "",
+        persons.some((p) => Object.keys(p.items).length > 0) ? " + ronda activa" : ""
       ] }) }),
-      personTotals.map((pt, i) => /* @__PURE__ */ jsxs("div", { className: "sw-person", children: [
-        /* @__PURE__ */ jsxs("div", { className: "sw-person-header", children: [
-          /* @__PURE__ */ jsxs("span", { className: "sw-person-name", children: [
-            /* @__PURE__ */ jsx("i", { className: "fas fa-user" }),
-            " ",
-            pt.name
+      personTotals.length === 0 ? /* @__PURE__ */ jsxs("div", { style: { textAlign: "center", padding: 40, color: "#94a3b8" }, children: [
+        /* @__PURE__ */ jsx("i", { className: "fas fa-receipt", style: { fontSize: 32, marginBottom: 10 } }),
+        /* @__PURE__ */ jsx("p", { children: "Sin datos para liquidar" })
+      ] }) : /* @__PURE__ */ jsxs(Fragment, { children: [
+        personTotals.map((pt, i) => /* @__PURE__ */ jsxs("div", { className: "sw-person", children: [
+          /* @__PURE__ */ jsxs("div", { className: "sw-person-header", children: [
+            /* @__PURE__ */ jsxs("span", { className: "sw-person-name", children: [
+              /* @__PURE__ */ jsx("i", { className: "fas fa-user" }),
+              " ",
+              pt.name
+            ] }),
+            /* @__PURE__ */ jsx("span", { className: "sw-person-total", children: formatPrice(pt.total) })
           ] }),
-          /* @__PURE__ */ jsx("span", { className: "sw-person-total", children: formatPrice(pt.total) })
-        ] }),
-        pt.items.map((item, j) => /* @__PURE__ */ jsxs("div", { className: "sw-item", children: [
-          /* @__PURE__ */ jsxs("span", { className: "sw-item-name", children: [
-            "×",
-            item.qty,
-            " ",
-            item.name
-          ] }),
-          /* @__PURE__ */ jsx("span", { className: "sw-item-price", children: formatPrice(item.price) })
-        ] }, j)),
-        pt.items.length === 0 && /* @__PURE__ */ jsx("div", { className: "sw-item", style: { color: "#94a3b8", fontStyle: "italic" }, children: "Sin productos" })
-      ] }, i)),
-      /* @__PURE__ */ jsxs("div", { className: "sw-summary", children: [
-        /* @__PURE__ */ jsxs("div", { className: "sw-summary-row total", children: [
-          /* @__PURE__ */ jsx("span", { children: "Total grupo" }),
-          /* @__PURE__ */ jsx("span", { className: "sw-summary-value", children: formatPrice(groupTotal) })
-        ] }),
-        /* @__PURE__ */ jsxs("div", { className: "sw-summary-row", children: [
-          /* @__PURE__ */ jsx("span", { children: "Personas" }),
-          /* @__PURE__ */ jsx("span", { children: personTotals.length })
-        ] }),
-        /* @__PURE__ */ jsxs("div", { className: "sw-summary-row", children: [
-          /* @__PURE__ */ jsx("span", { children: "Media por persona" }),
-          /* @__PURE__ */ jsx("span", { className: "sw-summary-value", children: formatPrice(average) })
-        ] })
-      ] }),
-      settlements.length > 0 && /* @__PURE__ */ jsxs("div", { className: "sw-settlements", children: [
-        /* @__PURE__ */ jsxs("div", { className: "sw-settlements-title", children: [
-          /* @__PURE__ */ jsx("i", { className: "fas fa-arrow-right-arrow-left" }),
-          " Liquidación sugerida"
-        ] }),
-        settlements.map((s, i) => /* @__PURE__ */ jsxs("div", { className: "sw-settlement", children: [
-          /* @__PURE__ */ jsx("span", { className: "sw-sett-from", children: s.from }),
-          /* @__PURE__ */ jsx("span", { className: "sw-sett-arrow", children: "→" }),
-          /* @__PURE__ */ jsx("span", { className: "sw-sett-to", children: s.to }),
-          /* @__PURE__ */ jsx("span", { className: "sw-sett-amount", children: formatPrice(s.amount) })
+          pt.items.map((item, j) => /* @__PURE__ */ jsxs("div", { className: "sw-item", children: [
+            /* @__PURE__ */ jsxs("span", { className: "sw-item-name", children: [
+              "×",
+              item.qty,
+              " ",
+              item.name
+            ] }),
+            /* @__PURE__ */ jsx("span", { className: "sw-item-price", children: formatPrice(item.price) })
+          ] }, j))
         ] }, i)),
-        /* @__PURE__ */ jsxs("div", { className: "sw-sett-note", children: [
-          /* @__PURE__ */ jsx("i", { className: "fas fa-info-circle" }),
-          " Quien debe más (media) paga a quien gastó más"
-        ] })
-      ] }),
-      settlements.length === 0 && personTotals.length > 0 && /* @__PURE__ */ jsxs("div", { className: "sw-settlements", style: { borderColor: "#86efac" }, children: [
-        /* @__PURE__ */ jsxs("div", { className: "sw-settlements-title", style: { color: "#16a34a" }, children: [
-          /* @__PURE__ */ jsx("i", { className: "fas fa-check-circle" }),
-          " Cuadradas"
+        /* @__PURE__ */ jsxs("div", { className: "sw-summary", children: [
+          /* @__PURE__ */ jsxs("div", { className: "sw-summary-row total", children: [
+            /* @__PURE__ */ jsx("span", { children: "Total global" }),
+            /* @__PURE__ */ jsx("span", { className: "sw-summary-value", children: formatPrice(groupTotal) })
+          ] }),
+          /* @__PURE__ */ jsxs("div", { className: "sw-summary-row", children: [
+            /* @__PURE__ */ jsx("span", { children: "Personas" }),
+            /* @__PURE__ */ jsx("span", { children: personTotals.length })
+          ] }),
+          /* @__PURE__ */ jsxs("div", { className: "sw-summary-row", children: [
+            /* @__PURE__ */ jsx("span", { children: "Media por persona" }),
+            /* @__PURE__ */ jsx("span", { className: "sw-summary-value", children: formatPrice(average) })
+          ] }),
+          /* @__PURE__ */ jsxs("div", { className: "sw-summary-row", style: { fontSize: 11, color: "#94a3b8", marginTop: 4 }, children: [
+            /* @__PURE__ */ jsxs("span", { children: [
+              "Incluye ",
+              historyOrders.length,
+              " comanda",
+              historyOrders.length !== 1 ? "s" : "",
+              " pasada",
+              historyOrders.length !== 1 ? "s" : ""
+            ] }),
+            /* @__PURE__ */ jsx("span", {})
+          ] })
         ] }),
-        /* @__PURE__ */ jsxs("div", { style: { padding: "12px 0", color: "#64748b", fontSize: 13 }, children: [
-          "Todos pagan lo mismo (",
-          formatPrice(average),
-          "). No hay liquidación necesaria."
+        settlements.length > 0 && /* @__PURE__ */ jsxs("div", { className: "sw-settlements", children: [
+          /* @__PURE__ */ jsxs("div", { className: "sw-settlements-title", children: [
+            /* @__PURE__ */ jsx("i", { className: "fas fa-arrow-right-arrow-left" }),
+            " Liquidación sugerida"
+          ] }),
+          settlements.map((s, i) => /* @__PURE__ */ jsxs("div", { className: "sw-settlement", children: [
+            /* @__PURE__ */ jsx("span", { className: "sw-sett-from", children: s.from }),
+            /* @__PURE__ */ jsx("span", { className: "sw-sett-arrow", children: "→" }),
+            /* @__PURE__ */ jsx("span", { className: "sw-sett-to", children: s.to }),
+            /* @__PURE__ */ jsx("span", { className: "sw-sett-amount", children: formatPrice(s.amount) })
+          ] }, i)),
+          /* @__PURE__ */ jsxs("div", { className: "sw-sett-note", children: [
+            /* @__PURE__ */ jsx("i", { className: "fas fa-info-circle" }),
+            " Quien gastó menos de la media paga a quien gastó más"
+          ] })
+        ] }),
+        settlements.length === 0 && personTotals.length > 0 && /* @__PURE__ */ jsxs("div", { className: "sw-settlements", style: { borderColor: "#86efac" }, children: [
+          /* @__PURE__ */ jsxs("div", { className: "sw-settlements-title", style: { color: "#16a34a" }, children: [
+            /* @__PURE__ */ jsx("i", { className: "fas fa-check-circle" }),
+            " Cuadradas"
+          ] }),
+          /* @__PURE__ */ jsxs("div", { style: { padding: "12px 0", color: "#64748b", fontSize: 13 }, children: [
+            "Todos pagan lo mismo (",
+            formatPrice(average),
+            "). No hay que transferir nada."
+          ] })
+        ] }),
+        /* @__PURE__ */ jsxs("div", { className: "sw-actions", children: [
+          /* @__PURE__ */ jsxs(
+            "button",
+            {
+              className: `sw-btn ${copied === "text" ? "copied" : ""}`,
+              onClick: handleCopyText,
+              children: [
+                /* @__PURE__ */ jsx("i", { className: `fas ${copied === "text" ? "fa-check" : "fa-copy"}` }),
+                copied === "text" ? "Copiado ✓" : "Copiar resumen"
+              ]
+            }
+          ),
+          /* @__PURE__ */ jsxs(
+            "button",
+            {
+              className: `sw-btn sw-btn-csv ${copied === "csv" ? "copied" : ""}`,
+              onClick: handleCopyCsv,
+              children: [
+                /* @__PURE__ */ jsx("i", { className: `fas ${copied === "csv" ? "fa-check" : "fa-file-csv"}` }),
+                copied === "csv" ? "Copiado ✓" : "CSV (Excel / Splitwise)"
+              ]
+            }
+          )
         ] })
-      ] }),
-      /* @__PURE__ */ jsxs("div", { className: "sw-actions", children: [
-        /* @__PURE__ */ jsxs(
-          "button",
-          {
-            className: `sw-btn ${copied === "text" ? "copied" : ""}`,
-            onClick: handleCopyText,
-            children: [
-              /* @__PURE__ */ jsx("i", { className: `fas ${copied === "text" ? "fa-check" : "fa-copy"}` }),
-              copied === "text" ? "Copiado ✓" : "Copiar resumen"
-            ]
-          }
-        ),
-        /* @__PURE__ */ jsxs(
-          "button",
-          {
-            className: `sw-btn sw-btn-csv ${copied === "csv" ? "copied" : ""}`,
-            onClick: handleCopyCsv,
-            children: [
-              /* @__PURE__ */ jsx("i", { className: `fas ${copied === "csv" ? "fa-check" : "fa-file-csv"}` }),
-              copied === "csv" ? "Copiado ✓" : "CSV (Excel / Splitwise)"
-            ]
-          }
-        )
       ] })
-    ] })
+    ] }) })
   ] }) });
 }
 let toastId = 0;
@@ -2963,17 +3039,8 @@ function OrderPage() {
     setOrderViewMode("consolidated");
   }, [persons, addToast]);
   const showSplitwiseView = useCallback(() => {
-    if (persons.length === 0) {
-      addToast("El pedido está vacío", "info");
-      return;
-    }
-    const hasItems = persons.some((p) => Object.keys(p.items).length > 0);
-    if (!hasItems) {
-      addToast("El pedido está vacío", "info");
-      return;
-    }
     setShowSplitwise(true);
-  }, [persons, addToast]);
+  }, []);
   const handlePlaceOrder = useCallback(async () => {
     if (!sessionCode || !myName) return;
     try {
