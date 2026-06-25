@@ -109,7 +109,7 @@ function LandingPage() {
               <div className="landing-screenshot-label">🖥️ Vista de escritorio</div>
             </div>
             <div className="landing-screenshot">
-              <img src="/screenshots/splitwise.png" alt="Liquidación Splitwise" loading="lazy" />
+              <img src="/screenshots/liquidacion.png" alt="Liquidación de cuentas" loading="lazy" />
               <div className="landing-screenshot-label">💰 Liquidación de cuentas</div>
             </div>
             <div className="landing-screenshot">

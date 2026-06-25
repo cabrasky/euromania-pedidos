@@ -23,7 +23,7 @@ import AdminPanel from '../components/admin/AdminPanel';
 import OrderViewModal from '../components/modals/OrderViewModal';
 import OrderHistoryModal from '../components/modals/OrderHistoryModal';
 import HistoryPanel from '../components/HistoryPanel';
-import SplitwiseModal from '../components/modals/SplitwiseModal';
+import LiquidacionModal from '../components/modals/LiquidacionModal';
 import { placeOrder } from '../services/api';
 
 let toastId = 0;
@@ -42,7 +42,7 @@ function OrderPage() {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [orderViewMode, setOrderViewMode] = useState<'by-person' | 'consolidated' | null>(null);
   const [showOrderHistory, setShowOrderHistory] = useState(false);
-  const [showSplitwise, setShowSplitwise] = useState(false);
+  const [showLiquidacion, setShowLiquidacion] = useState(false);
   const wsRef = useRef<SessionWebSocket | null>(null);
   const prevPersonsRef = useRef<Person[]>([]);
 
@@ -292,9 +292,9 @@ function OrderPage() {
     setOrderViewMode('consolidated');
   }, [persons, addToast]);
 
-  // Show Splitwise view
-  const showSplitwiseView = useCallback(() => {
-    setShowSplitwise(true);
+  // Show Liquidacion view
+  const showLiquidacionView = useCallback(() => {
+    setShowLiquidacion(true);
   }, []);
 
   // Place order — save to history and clear only current user's items
@@ -370,7 +370,7 @@ function OrderPage() {
           onClear={handleClear}
           onExport={showOrderByPerson}
           onExportConsolidated={showOrderConsolidated}
-          onExportSplitwise={showSplitwiseView}
+          onExportLiquidacion={showLiquidacionView}
           onPlaceOrder={handlePlaceOrder}
           onShowHistory={() => setShowOrderHistory(true)}
         />
@@ -404,9 +404,9 @@ function OrderPage() {
         sessionCode={sessionCode}
       />
 
-      <SplitwiseModal
-        open={showSplitwise}
-        onClose={() => setShowSplitwise(false)}
+      <LiquidacionModal
+        open={showLiquidacion}
+        onClose={() => setShowLiquidacion(false)}
         persons={persons}
         sessionCode={sessionCode}
       />

@@ -125,7 +125,7 @@ function computeSettlement(historyOrders: HistoryOrder[], persons: Person[]) {
   return { personTotals: pts, groupTotal: gt, settlements, roundDetails: rounds, hasActive };
 }
 
-function SplitwiseModal({ open, onClose, persons, sessionCode }: Props) {
+function LiquidacionModal({ open, onClose, persons, sessionCode }: Props) {
   const [copied, setCopied] = useState<'text' | 'csv' | null>(null);
   const [historyOrders, setHistoryOrders] = useState<HistoryOrder[]>([]);
   const [loading, setLoading] = useState(false);
@@ -248,16 +248,16 @@ function SplitwiseModal({ open, onClose, persons, sessionCode }: Props) {
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-box splitwise-box" onClick={e => e.stopPropagation()}>
+      <div className="modal-box liquidacion-box" onClick={e => e.stopPropagation()}>
         <div className="modal-header" style={{ background: '#0f172a', color: '#fff' }}>
           <i className="fas fa-hand-holding-dollar"></i>
-          <h2 style={{ color: '#fff' }}>Splitwise / Liquidación</h2>
+          <h2 style={{ color: '#fff' }}>Liquidación</h2>
           <button className="modal-close" onClick={onClose} style={{ color: '#94a3b8' }}>
             <i className="fas fa-xmark"></i>
           </button>
         </div>
 
-        <div className="modal-body splitwise-body">
+        <div className="modal-body liquidacion-body">
           {loading ? (
             <div style={{ textAlign: 'center', padding: 40, color: '#94a3b8' }}>
               <i className="fas fa-spinner fa-spin" style={{ fontSize: 24 }}></i>
@@ -376,4 +376,4 @@ function SplitwiseModal({ open, onClose, persons, sessionCode }: Props) {
   );
 }
 
-export default SplitwiseModal;
+export default LiquidacionModal;

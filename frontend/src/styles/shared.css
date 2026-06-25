@@ -1036,10 +1036,10 @@ header .header-right {
 }
 
 /* ═══════════════════════════════════════════
-   SPLITWISE MODAL
+   LIQUIDACION MODAL
    ═══════════════════════════════════════════ */
-.splitwise-box { max-width: 520px; }
-.splitwise-body { padding: 0; max-height: 70vh; overflow-y: auto; }
+.liquidacion-box { max-width: 520px; }
+.liquidacion-body { padding: 0; max-height: 70vh; overflow-y: auto; }
 .sw-header {
   padding: 16px 20px; font-size: 13px; color: #64748b;
   border-bottom: 1px solid #e2e8f0; font-weight: 700;

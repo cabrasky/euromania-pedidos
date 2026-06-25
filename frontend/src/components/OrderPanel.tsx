@@ -11,12 +11,12 @@ interface Props {
   onClear: () => void;
   onExport: () => void;
   onExportConsolidated: () => void;
-  onExportSplitwise: () => void;
+  onExportLiquidacion: () => void;
   onPlaceOrder: () => void;
   onShowHistory: () => void;
 }
 
-function OrderPanel({ currentPerson, persons, onChangeQty, onRemoveItem, onClear, onExport, onExportConsolidated, onExportSplitwise, onPlaceOrder, onShowHistory }: Props) {
+function OrderPanel({ currentPerson, persons, onChangeQty, onRemoveItem, onClear, onExport, onExportConsolidated, onExportLiquidacion, onPlaceOrder, onShowHistory }: Props) {
   const MOBILE = useMemo(() => window.innerWidth < 860, []);
   const [panelOpen, setPanelOpen] = useState(false);
 
@@ -128,7 +128,7 @@ function OrderPanel({ currentPerson, persons, onChangeQty, onRemoveItem, onClear
             style={{ background: '#f0fdf4', border: '1px solid #86efac', color: '#166534' }}>
             <i className="fas fa-list"></i> <span>Pedido</span>
           </button>
-          <button className="btn-splitwise" onClick={onExportSplitwise}
+          <button className="btn-liquidacion" onClick={onExportLiquidacion}
             style={{ background: '#fefce8', border: '1px solid #fde68a', color: '#92400e' }}>
             <i className="fas fa-hand-holding-dollar"></i>
           </button>
@@ -219,7 +219,7 @@ function OrderPanel({ currentPerson, persons, onChangeQty, onRemoveItem, onClear
               <button className="btn-export mob-btn-export" onClick={() => { closePanel(); onExport(); }}>
                 <i className="fas fa-clipboard-list"></i>
               </button>
-              <button className="mob-btn-splitwise" onClick={() => { closePanel(); onExportSplitwise(); }}
+              <button className="mob-btn-liquidacion" onClick={() => { closePanel(); onExportLiquidacion(); }}
                 style={{ background: '#fef3c7', border: 'none', color: '#92400e', borderRadius: 12, fontWeight: 700, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <i className="fas fa-hand-holding-dollar"></i>
               </button>

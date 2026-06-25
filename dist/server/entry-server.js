@@ -101,7 +101,7 @@ function LandingPage() {
           /* @__PURE__ */ jsx("div", { className: "landing-screenshot-label", children: "🖥️ Vista de escritorio" })
         ] }),
         /* @__PURE__ */ jsxs("div", { className: "landing-screenshot", children: [
-          /* @__PURE__ */ jsx("img", { src: "/screenshots/splitwise.png", alt: "Liquidación Splitwise", loading: "lazy" }),
+          /* @__PURE__ */ jsx("img", { src: "/screenshots/liquidacion.png", alt: "Liquidación de cuentas", loading: "lazy" }),
           /* @__PURE__ */ jsx("div", { className: "landing-screenshot-label", children: "💰 Liquidación de cuentas" })
         ] }),
         /* @__PURE__ */ jsxs("div", { className: "landing-screenshot", children: [
@@ -1793,7 +1793,7 @@ function MenuGrid({ persons, currentPersonIdx, activeCat, searchTerm, onSetCateg
     ] })
   ] });
 }
-function OrderPanel({ currentPerson, persons, onChangeQty, onRemoveItem, onClear, onExport, onExportConsolidated, onExportSplitwise, onPlaceOrder, onShowHistory }) {
+function OrderPanel({ currentPerson, persons, onChangeQty, onRemoveItem, onClear, onExport, onExportConsolidated, onExportLiquidacion, onPlaceOrder, onShowHistory }) {
   const MOBILE = useMemo(() => window.innerWidth < 860, []);
   const [panelOpen, setPanelOpen] = useState(false);
   const items = useMemo(() => currentPerson ? Object.values(currentPerson.items) : [], [currentPerson]);
@@ -1906,8 +1906,8 @@ function OrderPanel({ currentPerson, persons, onChangeQty, onRemoveItem, onClear
         /* @__PURE__ */ jsx(
           "button",
           {
-            className: "btn-splitwise",
-            onClick: onExportSplitwise,
+            className: "btn-liquidacion",
+            onClick: onExportLiquidacion,
             style: { background: "#fefce8", border: "1px solid #fde68a", color: "#92400e" },
             children: /* @__PURE__ */ jsx("i", { className: "fas fa-hand-holding-dollar" })
           }
@@ -1997,10 +1997,10 @@ function OrderPanel({ currentPerson, persons, onChangeQty, onRemoveItem, onClear
           /* @__PURE__ */ jsx(
             "button",
             {
-              className: "mob-btn-splitwise",
+              className: "mob-btn-liquidacion",
               onClick: () => {
                 closePanel();
-                onExportSplitwise();
+                onExportLiquidacion();
               },
               style: { background: "#fef3c7", border: "none", color: "#92400e", borderRadius: 12, fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center" },
               children: /* @__PURE__ */ jsx("i", { className: "fas fa-hand-holding-dollar" })
@@ -2585,7 +2585,7 @@ function computeSettlement(historyOrders, persons) {
   }
   return { personTotals: pts, groupTotal: gt, settlements, roundDetails: rounds, hasActive };
 }
-function SplitwiseModal({ open, onClose, persons, sessionCode }) {
+function LiquidacionModal({ open, onClose, persons, sessionCode }) {
   const [copied, setCopied] = useState(null);
   const [historyOrders, setHistoryOrders] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -2691,13 +2691,13 @@ function SplitwiseModal({ open, onClose, persons, sessionCode }) {
     }
   };
   if (!open) return null;
-  return /* @__PURE__ */ jsx("div", { className: "modal-overlay", onClick: onClose, children: /* @__PURE__ */ jsxs("div", { className: "modal-box splitwise-box", onClick: (e) => e.stopPropagation(), children: [
+  return /* @__PURE__ */ jsx("div", { className: "modal-overlay", onClick: onClose, children: /* @__PURE__ */ jsxs("div", { className: "modal-box liquidacion-box", onClick: (e) => e.stopPropagation(), children: [
     /* @__PURE__ */ jsxs("div", { className: "modal-header", style: { background: "#0f172a", color: "#fff" }, children: [
       /* @__PURE__ */ jsx("i", { className: "fas fa-hand-holding-dollar" }),
-      /* @__PURE__ */ jsx("h2", { style: { color: "#fff" }, children: "Splitwise / Liquidación" }),
+      /* @__PURE__ */ jsx("h2", { style: { color: "#fff" }, children: "Liquidación" }),
       /* @__PURE__ */ jsx("button", { className: "modal-close", onClick: onClose, style: { color: "#94a3b8" }, children: /* @__PURE__ */ jsx("i", { className: "fas fa-xmark" }) })
     ] }),
-    /* @__PURE__ */ jsx("div", { className: "modal-body splitwise-body", children: loading ? /* @__PURE__ */ jsxs("div", { style: { textAlign: "center", padding: 40, color: "#94a3b8" }, children: [
+    /* @__PURE__ */ jsx("div", { className: "modal-body liquidacion-body", children: loading ? /* @__PURE__ */ jsxs("div", { style: { textAlign: "center", padding: 40, color: "#94a3b8" }, children: [
       /* @__PURE__ */ jsx("i", { className: "fas fa-spinner fa-spin", style: { fontSize: 24 } }),
       /* @__PURE__ */ jsx("p", { style: { marginTop: 10 }, children: "Cargando historial..." })
     ] }) : personTotals.length === 0 ? /* @__PURE__ */ jsxs("div", { style: { textAlign: "center", padding: 40, color: "#94a3b8" }, children: [
@@ -2816,7 +2816,7 @@ function OrderPage() {
   const [toasts, setToasts] = useState([]);
   const [orderViewMode, setOrderViewMode] = useState(null);
   const [showOrderHistory, setShowOrderHistory] = useState(false);
-  const [showSplitwise, setShowSplitwise] = useState(false);
+  const [showLiquidacion, setShowLiquidacion] = useState(false);
   const wsRef = useRef(null);
   useRef([]);
   const addToast = useCallback((message, type, duration = 3500) => {
@@ -3052,8 +3052,8 @@ function OrderPage() {
     }
     setOrderViewMode("consolidated");
   }, [persons, addToast]);
-  const showSplitwiseView = useCallback(() => {
-    setShowSplitwise(true);
+  const showLiquidacionView = useCallback(() => {
+    setShowLiquidacion(true);
   }, []);
   const handlePlaceOrder = useCallback(async () => {
     if (!sessionCode || !myName) return;
@@ -3126,7 +3126,7 @@ function OrderPage() {
           onClear: handleClear,
           onExport: showOrderByPerson,
           onExportConsolidated: showOrderConsolidated,
-          onExportSplitwise: showSplitwiseView,
+          onExportLiquidacion: showLiquidacionView,
           onPlaceOrder: handlePlaceOrder,
           onShowHistory: () => setShowOrderHistory(true)
         }
@@ -3168,10 +3168,10 @@ function OrderPage() {
       }
     ),
     /* @__PURE__ */ jsx(
-      SplitwiseModal,
+      LiquidacionModal,
       {
-        open: showSplitwise,
-        onClose: () => setShowSplitwise(false),
+        open: showLiquidacion,
+        onClose: () => setShowLiquidacion(false),
         persons,
         sessionCode
       }
