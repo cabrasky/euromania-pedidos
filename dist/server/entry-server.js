@@ -90,7 +90,7 @@ function LandingPage() {
         /* @__PURE__ */ jsx("p", { children: s.desc })
       ] }, i)) })
     ] }) }),
-    /* @__PURE__ */ jsx("section", { className: "landing-section landing-screenshots-section", style: { paddingTop: 0 }, children: /* @__PURE__ */ jsxs("div", { className: "landing-container", children: [
+    /* @__PURE__ */ jsx("section", { className: "landing-section landing-screenshots-section", children: /* @__PURE__ */ jsxs("div", { className: "landing-container", children: [
       /* @__PURE__ */ jsxs("h2", { children: [
         /* @__PURE__ */ jsx("i", { className: "fas fa-camera" }),
         " Así se ve"

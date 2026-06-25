@@ -100,7 +100,7 @@ function LandingPage() {
       </section>
 
       {/* Screenshots */}
-      <section className="landing-section landing-screenshots-section" style={{ paddingTop: 0 }}>
+      <section className="landing-section landing-screenshots-section">
         <div className="landing-container">
           <h2><i className="fas fa-camera" /> Así se ve</h2>
           <div className="landing-screenshots">
