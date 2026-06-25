@@ -32,11 +32,12 @@
 ## 📸 Capturas
 
 <p align="center">
-  <img src="frontend/public/screenshots/desktop.png" width="49%" alt="Vista de escritorio">
-  <img src="frontend/public/screenshots/splitwise.png" width="49%" alt="Liquidación Splitwise">
-  <br>
-  <img src="frontend/public/screenshots/history.png" width="49%" alt="Historial de comandas">
+  <img src="frontend/public/screenshots/desktop.png" width="30%" alt="Vista de escritorio">
+  <img src="frontend/public/screenshots/splitwise.png" width="30%" alt="Liquidación Splitwise">
+  <img src="frontend/public/screenshots/history.png" width="30%" alt="Historial de comandas">
 </p>
+
+<p align="center"><sub>⬆️ Haz clic en cada imagen para verla a tamaño completo</sub></p>
 
 ---
 
