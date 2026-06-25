@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import AdminPanel from './AdminPanel';
+import AdminPanel from './admin/AdminPanel';
 
 interface Props {
   onLogin: (name: string, code?: string) => Promise<void>;

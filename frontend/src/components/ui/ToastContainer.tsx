@@ -1,17 +1,10 @@
-import { useState, useEffect } from 'react';
-import { Toast } from '../types';
+import { Toast } from '../../types';
 
 interface Props {
   toasts: Toast[];
 }
 
 function ToastContainer({ toasts }: Props) {
-  const [exiting, setExiting] = useState<Set<number>>(new Set());
-
-  useEffect(() => {
-    // Mark new toasts as entering (not exiting)
-  }, [toasts.length]);
-
   if (toasts.length === 0) return null;
 
   return (
@@ -24,7 +17,7 @@ function ToastContainer({ toasts }: Props) {
         else if (t.type === 'update') icon = 'fa-pen-to-square';
 
         return (
-          <div key={t.id} className={`toast-item ${typeClass}`}>
+          <div key={t.id} className={`toast ${typeClass}`}>
             <i className={`fas ${icon}`}></i> {t.message}
           </div>
         );

@@ -6,7 +6,6 @@ interface Props {
   sessionUrl: string;
 }
 
-// Global QRCode type from CDN
 declare const QRCode: any;
 
 function QRModal({ open, onClose, sessionUrl }: Props) {
@@ -33,15 +32,23 @@ function QRModal({ open, onClose, sessionUrl }: Props) {
   if (!open) return null;
 
   return (
-    <div className="qr-overlay open" onClick={onClose}>
-      <div className="qr-card" onClick={e => e.stopPropagation()}>
-        <h3><i className="fas fa-qrcode" style={{ color: '#2563eb' }}></i> Escanea para unirte</h3>
-        <div className="qr-sub">Abre la cámara y escanea este código</div>
-        <div ref={qrRef} id="qrContainer"></div>
-        <div className="qr-url">{sessionUrl}</div>
-        <button className="qr-close" onClick={onClose}>
-          <i className="fas fa-times"></i> Cerrar
-        </button>
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-box" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <i className="fas fa-qrcode"></i>
+          <h2>Escanea para unirte</h2>
+          <button className="modal-close" onClick={onClose}>
+            <i className="fas fa-xmark"></i>
+          </button>
+        </div>
+        <div className="modal-body">
+          <div className="qr-code-wrap">
+            <div ref={qrRef}></div>
+          </div>
+          <div className="qr-link">
+            <a href={sessionUrl} target="_blank" rel="noopener">{sessionUrl}</a>
+          </div>
+        </div>
       </div>
     </div>
   );

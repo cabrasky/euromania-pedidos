@@ -1,5 +1,7 @@
 import { useMemo } from 'react';
-import { Person, MENU, getKey, getCatLabel, CATEGORY_ICONS, getPrice, getCatIcon, getActiveMenu } from '../types';
+import { Person } from '../types';
+import { MENU } from '../data/menuData';
+import { getKey, getCatLabel, getPrice, getCatIcon, getActiveMenu } from '../services/menuStore';
 
 interface Props {
   persons: Person[];

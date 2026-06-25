@@ -1,4 +1,4 @@
-import { SessionData } from './types';
+import { SessionData } from '../types';
 
 const API_BASE = '';
 

@@ -1,0 +1,6 @@
+/* ═══════════════════════════════════════════
+   STYLES INDEX — Entry point for all CSS
+   ═══════════════════════════════════════════ */
+@import './shared.css';
+@import './admin.css';
+@import './landing.css';

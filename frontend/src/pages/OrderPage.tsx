@@ -1,28 +1,30 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { Person, Toast, WsMessage } from '../types';
 import {
-  Person, Toast, WsMessage, MenuItem, MENU, getKey, getCatLabel,
-  CATEGORY_ICONS, CATEGORY_LABELS, parsePrice, getPrice, findItem,
-  getCats, setActiveMenu, getActiveMenu,
-} from './types';
+  getKey, getCatLabel, parsePrice, getPrice,
+  getCatIcon, findItem, setActiveMenu, getActiveMenu,
+} from '../services/menuStore';
+import { CATEGORY_LABELS } from '../data/menuData';
 import {
   createSession, joinSession, addPerson, removePerson,
   upsertItem, removeItem, clearPerson,
   setSessionCookie, getSessionCookie, clearSessionCookie,
   fetchActiveMenu,
-} from './api';
-import { SessionWebSocket } from './websocket';
-import LoginScreen from './components/LoginScreen';
-import Header from './components/Header';
-import PersonBar from './components/PersonBar';
-import MenuGrid from './components/MenuGrid';
-import OrderPanel from './components/OrderPanel';
-import QRModal from './components/QRModal';
-import PrivacyModal from './components/PrivacyModal';
-import ToastContainer from './components/ToastContainer';
+} from '../services/api';
+import { SessionWebSocket } from '../services/websocket';
+import LoginScreen from '../components/LoginScreen';
+import Header from '../components/Header';
+import PersonBar from '../components/PersonBar';
+import MenuGrid from '../components/MenuGrid';
+import OrderPanel from '../components/OrderPanel';
+import QRModal from '../components/modals/QRModal';
+import PrivacyModal from '../components/modals/PrivacyModal';
+import ToastContainer from '../components/ui/ToastContainer';
+import AdminPanel from '../components/admin/AdminPanel';
 
 let toastId = 0;
 
-function OrderApp() {
+function OrderPage() {
   const [sessionCode, setSessionCode] = useState('');
   const [myName, setMyName] = useState('');
   const [persons, setPersons] = useState<Person[]>([]);
@@ -32,6 +34,7 @@ function OrderApp() {
   const [loading, setLoading] = useState(true);
   const [qrOpen, setQrOpen] = useState(false);
   const [privacyOpen, setPrivacyOpen] = useState(false);
+  const [showAdmin, setShowAdmin] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const wsRef = useRef<SessionWebSocket | null>(null);
   const prevPersonsRef = useRef<Person[]>([]);
@@ -73,7 +76,6 @@ function OrderApp() {
   const syncPersons = useCallback((msg: WsMessage) => {
     if (msg.people) {
       setPersons(msg.people);
-      // Ensure current user exists
       if (myName && !msg.people.find(p => p.name === myName)) {
         addPerson(sessionCode, myName);
       }
@@ -93,7 +95,6 @@ function OrderApp() {
     setSessionCookie(code, name);
     setLoading(false);
 
-    // Connect WebSocket
     const ws = new SessionWebSocket(code, onWsMessage);
     wsRef.current = ws;
   }, [onWsMessage]);
@@ -112,27 +113,22 @@ function OrderApp() {
         const idx = Math.max(0, data.people.findIndex(p => p.name === name));
         setCurrentPersonIdx(idx < 0 ? 0 : idx);
       }
-    } catch {
-      // ignore
-    }
+    } catch { /* ignore */ }
   }, []);
 
   // Handle login
   const handleLogin = useCallback(async (name: string, code?: string) => {
     if (code) {
-      // Join existing
       const data = await joinSession(code);
       if (data.error) throw new Error(data.error);
       await addPerson(code, name);
       enterSession(code, name);
       loadSession(code, name);
     } else {
-      // Create new
       const data = await createSession();
       await addPerson(data.code, name);
       enterSession(data.code, name);
       loadSession(data.code, name);
-      // Auto-copy session link
       const url = `https://euromania.cabrasky.net/app?session=${data.code}`;
       navigator.clipboard.writeText(url).then(() => {
         addToast('📋 Link de la sesión copiado al portapapeles', 'info', 4000);
@@ -142,11 +138,9 @@ function OrderApp() {
 
   // Auto-reconnect on mount
   useEffect(() => {
-    // Load active menu from API
     fetchActiveMenu().then(menu => {
       setActiveMenu(menu);
     }).catch(() => {
-      // Fallback to hardcoded MENU
       setActiveMenu(null);
     });
 
@@ -155,11 +149,9 @@ function OrderApp() {
     const sessionFromUrl = params.get('session');
 
     if (sessionFromUrl) {
-      // QR code scan — fill the form
       (window as any).__joinCode = sessionFromUrl.toUpperCase();
       setLoading(false);
     } else if (saved?.code && saved?.name) {
-      // Auto reconnect from cookie
       joinSession(saved.code).then(data => {
         if (data.error) {
           clearSessionCookie();
@@ -316,13 +308,12 @@ function OrderApp() {
       });
   }, [persons, sessionCode, addToast]);
 
-  // Consolidated order summary (grouped by item, not by person)
+  // Consolidated order summary (grouped by item)
   const exportConsolidated = useCallback(() => {
     if (persons.length === 0) { addToast('El pedido está vacío', 'info'); return; }
     const hasItems = persons.some(p => Object.keys(p.items).length > 0);
     if (!hasItems) { addToast('El pedido está vacío', 'info'); return; }
 
-    // Consolidate all items across all people
     const consolidated: Record<string, { name: string; code: string; qty: number; category: string; price: number }> = {};
     persons.forEach(p => {
       Object.entries(p.items).forEach(([key, o]) => {
@@ -340,7 +331,6 @@ function OrderApp() {
       });
     });
 
-    // Sort by category order then by code
     const catOrder = ['casa', 'clasicos', 'imprescindibles', 'especiales', 'montycookie', 'montydinas', 'montyperros', 'montyburgers', 'montypizzas', 'montygourmet', 'aperitivos', 'postres', 'bebidas', 'extras'];
     const sorted = Object.entries(consolidated).sort((a, b) => {
       const ca = catOrder.indexOf(a[1].category);
@@ -381,7 +371,6 @@ function OrderApp() {
       .catch(() => addToast('❌ Error al copiar', 'remove'));
   }, [persons, sessionCode, addToast]);
 
-  // Get session URL
   const sessionUrl = `https://euromania.cabrasky.net/app?session=${sessionCode}`;
 
   if (loading) {
@@ -459,8 +448,12 @@ function OrderApp() {
       />
 
       <ToastContainer toasts={toasts} />
+
+      {showAdmin && (
+        <AdminPanel onClose={() => setShowAdmin(false)} />
+      )}
     </div>
   );
 }
 
-export default OrderApp;
+export default OrderPage;

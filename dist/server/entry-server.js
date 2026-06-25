@@ -4,7 +4,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
 import { jsxs, jsx, Fragment } from "react/jsx-runtime";
 import { Helmet, HelmetProvider } from "react-helmet-async";
 import { Link, Routes, Route, StaticRouter } from "react-router-dom";
-import { useState, useCallback, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 const FEATURES = [
   { icon: "fa-users", title: "Pedidos en grupo", desc: "Cada persona añade sus montaditos en su propio perfil. Todo en una misma sesión." },
   { icon: "fa-bolt", title: "Tiempo real", desc: "Los cambios se ven al instante gracias a WebSockets. Nada de recargar la página." },
@@ -176,26 +176,6 @@ const CATEGORY_ICONS = {
   bebidas: "fa-wine-bottle",
   extras: "fa-plus-circle"
 };
-let _activeMenu = null;
-let _activeMenuLookup = null;
-function setActiveMenu(menu) {
-  _activeMenu = menu;
-  if (menu) {
-    _activeMenuLookup = {};
-    for (const cat of menu.categories) {
-      _activeMenuLookup[cat.key] = {};
-      for (const item of cat.items) {
-        const key = item.code || item.name;
-        _activeMenuLookup[cat.key][key] = item;
-      }
-    }
-  } else {
-    _activeMenuLookup = null;
-  }
-}
-function getActiveMenu() {
-  return _activeMenu;
-}
 const MENU = {
   casa: { price: "1€", items: [
     { code: "01", name: "Jamón Gran Reserva y aceite de oliva" },
@@ -340,12 +320,32 @@ const MENU = {
     { name: "Añade extra salsa", price: "+0,30€" }
   ] }
 };
-function parsePrice(ps) {
-  if (!ps) return 0;
-  return parseFloat(ps.replace(",", ".").replace(/[€+]/g, "").trim()) || 0;
+let _activeMenu = null;
+let _activeMenuLookup = null;
+function setActiveMenu(menu) {
+  _activeMenu = menu;
+  if (menu) {
+    _activeMenuLookup = {};
+    for (const cat of menu.categories) {
+      _activeMenuLookup[cat.key] = {};
+      for (const item of cat.items) {
+        const key = item.code || item.name;
+        _activeMenuLookup[cat.key][key] = item;
+      }
+    }
+  } else {
+    _activeMenuLookup = null;
+  }
+}
+function getActiveMenu() {
+  return _activeMenu;
 }
 function getKey(item) {
   return item.code || item.name;
+}
+function parsePrice(ps) {
+  if (!ps) return 0;
+  return parseFloat(ps.replace(",", ".").replace(/[€+]/g, "").trim()) || 0;
 }
 function getCatLabel(k) {
   if (_activeMenu) {
@@ -372,11 +372,6 @@ function getPrice(catKey, item) {
       const apiItem = catItems[lookupKey];
       if (apiItem == null ? void 0 : apiItem.price) return apiItem.price;
     }
-    for (const cat2 of _activeMenu.categories) {
-      if (cat2.key === catKey && cat2.items.length > 0) {
-        break;
-      }
-    }
   }
   if (item.price) return item.price;
   const cat = MENU[catKey];
@@ -388,12 +383,7 @@ function getPrice(catKey, item) {
       if ((_a = MENU[k]) == null ? void 0 : _a.price) return MENU[k].price;
     }
   }
-  const categoryData = MENU[catKey] || (() => {
-    for (const [k] of Object.entries(CATEGORY_LABELS)) {
-      if (k === catKey.replace(" 1€", "").toLowerCase()) return MENU[k];
-    }
-    return null;
-  })();
+  const categoryData = MENU[catKey];
   if (categoryData == null ? void 0 : categoryData.items) {
     const found = categoryData.items.find(
       (mi) => mi.name === item.name || item.code && mi.code === item.code
@@ -487,44 +477,92 @@ function clearSessionCookie() {
 }
 class SessionWebSocket {
   constructor(code, onMessage) {
-    __publicField(this, "ws", null);
-    __publicField(this, "code");
+    __publicField(this, "ws");
     __publicField(this, "onMessage");
-    __publicField(this, "reconnectTimer", null);
-    __publicField(this, "pingInterval", null);
-    this.code = code;
     this.onMessage = onMessage;
-    this.connect();
-  }
-  connect() {
-    const proto = location.protocol === "https:" ? "wss:" : "ws:";
-    this.ws = new WebSocket(`${proto}//${location.host}/ws/${this.code}`);
-    this.ws.onmessage = (e) => {
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const host = window.location.host;
+    this.ws = new WebSocket(`${protocol}//${host}/ws/${code}`);
+    this.ws.onmessage = (event) => {
       try {
-        const msg = JSON.parse(e.data);
+        const msg = JSON.parse(event.data);
         this.onMessage(msg);
-      } catch {
+      } catch (e) {
+        console.error("WS parse error:", e);
       }
     };
     this.ws.onclose = () => {
-      this.reconnectTimer = setTimeout(() => this.connect(), 2e3);
+      console.log("WS closed");
     };
-    this.ws.onerror = () => {
-      var _a;
-      return (_a = this.ws) == null ? void 0 : _a.close();
-    };
-    this.pingInterval = setInterval(() => {
-      var _a;
-      if (((_a = this.ws) == null ? void 0 : _a.readyState) === WebSocket.OPEN) this.ws.send("ping");
-    }, 3e4);
   }
   close() {
-    var _a;
-    if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
-    if (this.pingInterval) clearInterval(this.pingInterval);
-    (_a = this.ws) == null ? void 0 : _a.close();
-    this.ws = null;
+    this.ws.close();
   }
+}
+function AdminLogin({ onLogin }) {
+  const [password, setPassword] = useState("");
+  const [loginError, setLoginError] = useState("");
+  const [loginBusy, setLoginBusy] = useState(false);
+  const base = window.location.origin;
+  useEffect(() => {
+    setTimeout(() => {
+      const el = document.querySelector(".admin-login-input");
+      if (el) el.focus();
+    }, 200);
+  }, []);
+  const handleLogin = async () => {
+    if (!password.trim()) return;
+    setLoginError("");
+    setLoginBusy(true);
+    try {
+      const r = await fetch(`${base}/api/admin/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: password.trim() })
+      });
+      const data = await r.json();
+      if (data.error) {
+        setLoginError(data.error);
+        setLoginBusy(false);
+      } else {
+        onLogin(data.token);
+        setLoginBusy(false);
+      }
+    } catch {
+      setLoginError("Error de conexión");
+      setLoginBusy(false);
+    }
+  };
+  return /* @__PURE__ */ jsx("div", { className: "admin-body", children: /* @__PURE__ */ jsxs("div", { className: "admin-login", children: [
+    /* @__PURE__ */ jsx("div", { className: "admin-login-icon", children: /* @__PURE__ */ jsx("i", { className: "fas fa-lock" }) }),
+    /* @__PURE__ */ jsx("h3", { children: "Acceso restringido" }),
+    /* @__PURE__ */ jsx("p", { className: "admin-login-desc", children: "Introduce la contraseña de administrador para acceder al panel." }),
+    /* @__PURE__ */ jsx(
+      "input",
+      {
+        type: "password",
+        className: "admin-login-input",
+        placeholder: "Contraseña de administrador",
+        value: password,
+        onChange: (e) => setPassword(e.target.value),
+        onKeyDown: (e) => {
+          if (e.key === "Enter") handleLogin();
+        },
+        autoComplete: "off"
+      }
+    ),
+    loginError && /* @__PURE__ */ jsxs("div", { className: "admin-login-error", children: [
+      "❌ ",
+      loginError
+    ] }),
+    /* @__PURE__ */ jsx("button", { className: "admin-login-btn", onClick: handleLogin, disabled: loginBusy || !password.trim(), children: loginBusy ? /* @__PURE__ */ jsxs(Fragment, { children: [
+      /* @__PURE__ */ jsx("i", { className: "fas fa-spinner fa-spin" }),
+      " Verificando..."
+    ] }) : /* @__PURE__ */ jsxs(Fragment, { children: [
+      /* @__PURE__ */ jsx("i", { className: "fas fa-right-to-bracket" }),
+      " Entrar"
+    ] }) })
+  ] }) });
 }
 const CAT_LABELS = {
   euromania: "Euromania",
@@ -544,99 +582,168 @@ const CAT_LABELS = {
   premium: "Premium",
   especiales_sin_gluten: "Sin Gluten"
 };
-const base = window.location.origin;
-function AdminPanel({ onClose }) {
-  const [token, setToken] = useState(null);
-  const [password, setPassword] = useState("");
-  const [loginError, setLoginError] = useState("");
-  const [loginBusy, setLoginBusy] = useState(false);
-  const [firstFocus, setFirstFocus] = useState(true);
+function AdminStats({ authHeaders, base }) {
   const [stats, setStats] = useState(null);
-  const [bans, setBans] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [tab, setTab] = useState("stats");
-  const [banIp, setBanIp] = useState("");
-  const [banReason, setBanReason] = useState("");
-  const [banMsg, setBanMsg] = useState("");
-  const [banMsgType, setBanMsgType] = useState("ok");
-  const [showCheck, setShowCheck] = useState(false);
-  const [checkResult, setCheckResult] = useState(null);
-  const authHeaders = useCallback(() => ({
-    "Content-Type": "application/json",
-    "Authorization": `Bearer ${token}`
-  }), [token]);
-  const handleLogin = async () => {
-    if (!password.trim()) return;
-    setLoginError("");
-    setLoginBusy(true);
-    try {
-      const r = await fetch(`${base}/api/admin/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password: password.trim() })
-      });
-      const data = await r.json();
-      if (data.error) {
-        setLoginError(data.error);
-        setLoginBusy(false);
-      } else {
-        setToken(data.token);
-        setLoginBusy(false);
-      }
-    } catch {
-      setLoginError("Error de conexión");
-      setLoginBusy(false);
-    }
-  };
   useEffect(() => {
-    if (!token) return;
-    const loadStats = async () => {
+    const load = async () => {
       setLoading(true);
       try {
         const r = await fetch(`${base}/api/admin/stats`, { headers: authHeaders() });
-        if (r.status === 401 || r.status === 403) {
-          setToken(null);
-          setLoading(false);
-          return;
-        }
+        if (r.status === 401 || r.status === 403) return;
         setStats(await r.json());
       } catch {
         setError("Error al cargar estadísticas");
       }
       setLoading(false);
     };
-    const loadBans = async () => {
-      try {
-        const r = await fetch(`${base}/api/admin/bans`, { headers: authHeaders() });
-        if (r.status === 401 || r.status === 403) {
-          setToken(null);
-          return;
-        }
-        setBans(await r.json());
-      } catch {
-      }
-    };
-    loadStats();
-    loadBans();
-  }, [token]);
-  useEffect(() => {
-    if (token && tab === "bans") {
-      fetch(`${base}/api/admin/bans`, { headers: authHeaders() }).then((r) => r.json()).then((data) => setBans(data)).catch(() => {
-      });
-    }
-  }, [tab, token]);
-  useEffect(() => {
-    if (firstFocus && !token) {
-      setFirstFocus(false);
-      setTimeout(() => {
-        const el = document.querySelector(".admin-login-input");
-        if (el) el.focus();
-      }, 200);
-    }
-  }, [token, firstFocus]);
+    load();
+  }, [base, authHeaders]);
   const fmt = (n) => n.toLocaleString("es-ES");
   const barWidth = (val, max) => max > 0 ? val / max * 100 : 0;
+  if (loading) return /* @__PURE__ */ jsxs("div", { className: "admin-loading", children: [
+    /* @__PURE__ */ jsx("i", { className: "fas fa-spinner fa-spin" }),
+    " Cargando..."
+  ] });
+  if (error) return /* @__PURE__ */ jsxs("div", { className: "admin-error", children: [
+    "⚠️ ",
+    error
+  ] });
+  if (!stats) return null;
+  return /* @__PURE__ */ jsxs(Fragment, { children: [
+    /* @__PURE__ */ jsxs("div", { className: "admin-note", children: [
+      /* @__PURE__ */ jsx("i", { className: "fas fa-shield-halved" }),
+      "Datos totalmente anonimizados — no se muestran nombres, IPs ni códigos de sesión"
+    ] }),
+    /* @__PURE__ */ jsxs("div", { className: "admin-metrics", children: [
+      /* @__PURE__ */ jsxs("div", { className: "metric-card", children: [
+        /* @__PURE__ */ jsx("span", { className: "metric-icon", children: /* @__PURE__ */ jsx("i", { className: "fas fa-users" }) }),
+        /* @__PURE__ */ jsx("span", { className: "metric-value", children: fmt(stats.totals.active_sessions) }),
+        /* @__PURE__ */ jsx("span", { className: "metric-label", children: "Sesiones activas" })
+      ] }),
+      /* @__PURE__ */ jsxs("div", { className: "metric-card", children: [
+        /* @__PURE__ */ jsx("span", { className: "metric-icon", children: /* @__PURE__ */ jsx("i", { className: "fas fa-cube" }) }),
+        /* @__PURE__ */ jsx("span", { className: "metric-value", children: fmt(stats.totals.total_items) }),
+        /* @__PURE__ */ jsx("span", { className: "metric-label", children: "Items totales" })
+      ] }),
+      /* @__PURE__ */ jsxs("div", { className: "metric-card", children: [
+        /* @__PURE__ */ jsx("span", { className: "metric-icon", children: /* @__PURE__ */ jsx("i", { className: "fas fa-user" }) }),
+        /* @__PURE__ */ jsx("span", { className: "metric-value", children: fmt(stats.totals.total_persons) }),
+        /* @__PURE__ */ jsx("span", { className: "metric-label", children: "Personas" })
+      ] }),
+      /* @__PURE__ */ jsxs("div", { className: "metric-card", children: [
+        /* @__PURE__ */ jsx("span", { className: "metric-icon", children: /* @__PURE__ */ jsx("i", { className: "fas fa-wifi" }) }),
+        /* @__PURE__ */ jsx("span", { className: "metric-value", children: fmt(stats.ws_connected) }),
+        /* @__PURE__ */ jsx("span", { className: "metric-label", children: "Conectados ahora" })
+      ] })
+    ] }),
+    /* @__PURE__ */ jsxs("div", { className: "admin-section", children: [
+      /* @__PURE__ */ jsxs("h3", { children: [
+        /* @__PURE__ */ jsx("i", { className: "fas fa-clock" }),
+        " Sesiones creadas"
+      ] }),
+      ["sessions_24h", "sessions_7d", "total_sessions"].map((k) => /* @__PURE__ */ jsxs("div", { className: "admin-row", children: [
+        /* @__PURE__ */ jsx("span", { children: k === "sessions_24h" ? "Últimas 24h" : k === "sessions_7d" ? "Últimos 7 días" : "Total histórico" }),
+        /* @__PURE__ */ jsx("div", { className: "admin-bar-bg", children: /* @__PURE__ */ jsx("div", { className: "admin-bar", style: { width: `${k === "total_sessions" ? 100 : barWidth(stats.totals[k], stats.totals.total_sessions)}%` } }) }),
+        /* @__PURE__ */ jsx("span", { className: "admin-val", children: fmt(stats.totals[k]) })
+      ] }, k))
+    ] }),
+    /* @__PURE__ */ jsxs("div", { className: "admin-section", children: [
+      /* @__PURE__ */ jsxs("h3", { children: [
+        /* @__PURE__ */ jsx("i", { className: "fas fa-cart-shopping" }),
+        " Pedidos"
+      ] }),
+      /* @__PURE__ */ jsxs("div", { className: "admin-row", children: [
+        /* @__PURE__ */ jsx("span", { children: "Items últimas 24h" }),
+        /* @__PURE__ */ jsx("div", { className: "admin-bar-bg", children: /* @__PURE__ */ jsx("div", { className: "admin-bar", style: { width: `${barWidth(stats.totals.items_24h, stats.totals.total_items)}%` } }) }),
+        /* @__PURE__ */ jsx("span", { className: "admin-val", children: fmt(stats.totals.items_24h) })
+      ] }),
+      /* @__PURE__ */ jsxs("div", { className: "admin-row", children: [
+        /* @__PURE__ */ jsx("span", { children: "Media items/persona" }),
+        /* @__PURE__ */ jsx("div", { className: "admin-bar-bg", children: /* @__PURE__ */ jsx("div", { className: "admin-bar", style: { width: `${Math.min(stats.totals.avg_items_per_person * 6, 100)}%` } }) }),
+        /* @__PURE__ */ jsx("span", { className: "admin-val", children: stats.totals.avg_items_per_person })
+      ] }),
+      /* @__PURE__ */ jsxs("div", { className: "admin-row", children: [
+        /* @__PURE__ */ jsx("span", { children: "Media personas/sesión" }),
+        /* @__PURE__ */ jsx("div", { className: "admin-bar-bg", children: /* @__PURE__ */ jsx("div", { className: "admin-bar", style: { width: `${Math.min(stats.totals.avg_people_per_session * 20, 100)}%` } }) }),
+        /* @__PURE__ */ jsx("span", { className: "admin-val", children: stats.totals.avg_people_per_session })
+      ] })
+    ] }),
+    stats.categories.length > 0 && /* @__PURE__ */ jsxs("div", { className: "admin-section", children: [
+      /* @__PURE__ */ jsxs("h3", { children: [
+        /* @__PURE__ */ jsx("i", { className: "fas fa-chart-pie" }),
+        " Categorías más pedidas"
+      ] }),
+      stats.categories.slice(0, 10).map((c) => {
+        const max = stats.categories[0].count;
+        return /* @__PURE__ */ jsxs("div", { className: "admin-row", children: [
+          /* @__PURE__ */ jsx("span", { children: CAT_LABELS[c.category] || c.category }),
+          /* @__PURE__ */ jsx("div", { className: "admin-bar-bg", children: /* @__PURE__ */ jsx("div", { className: "admin-bar cat-bar", style: { width: `${barWidth(c.count, max)}%` } }) }),
+          /* @__PURE__ */ jsx("span", { className: "admin-val", children: fmt(c.count) })
+        ] }, c.category);
+      })
+    ] }),
+    stats.hourly_activity.length > 0 && /* @__PURE__ */ jsxs("div", { className: "admin-section", children: [
+      /* @__PURE__ */ jsxs("h3", { children: [
+        /* @__PURE__ */ jsx("i", { className: "fas fa-chart-line" }),
+        " Actividad por hora"
+      ] }),
+      /* @__PURE__ */ jsx("div", { className: "admin-hourly-grid", children: Array.from({ length: 24 }, (_, h) => {
+        const found = stats.hourly_activity.find((a) => a.hour === h);
+        const count = found ? found.count : 0;
+        const peak = Math.max(...stats.hourly_activity.map((a) => a.count), 1);
+        return /* @__PURE__ */ jsxs("div", { className: "hour-bar-wrap", children: [
+          /* @__PURE__ */ jsx("div", { className: "hour-bar", style: { height: `${barWidth(count, peak)}%` }, title: `${h}:00 — ${count} sesiones` }),
+          /* @__PURE__ */ jsx("span", { className: "hour-label", children: h })
+        ] }, h);
+      }) })
+    ] }),
+    /* @__PURE__ */ jsxs("div", { className: "admin-section", children: [
+      /* @__PURE__ */ jsxs("h3", { children: [
+        /* @__PURE__ */ jsx("i", { className: "fas fa-plug" }),
+        " Conexiones en vivo"
+      ] }),
+      /* @__PURE__ */ jsxs("div", { className: "admin-row", children: [
+        /* @__PURE__ */ jsx("span", { children: "WebSockets activos" }),
+        /* @__PURE__ */ jsx("span", { className: "admin-val", children: fmt(stats.ws_connected) })
+      ] }),
+      /* @__PURE__ */ jsxs("div", { className: "admin-row", children: [
+        /* @__PURE__ */ jsx("span", { children: "Salas activas" }),
+        /* @__PURE__ */ jsx("span", { className: "admin-val", children: fmt(stats.ws_rooms) })
+      ] })
+    ] }),
+    /* @__PURE__ */ jsxs("div", { className: "admin-footer", children: [
+      /* @__PURE__ */ jsxs("p", { children: [
+        /* @__PURE__ */ jsx("i", { className: "fas fa-database" }),
+        " Todos los datos son agregados y anónimos"
+      ] }),
+      /* @__PURE__ */ jsxs("p", { children: [
+        /* @__PURE__ */ jsx("i", { className: "fas fa-trash-can" }),
+        " Datos eliminados automáticamente a los 5 días"
+      ] })
+    ] })
+  ] });
+}
+function AdminBans({ authHeaders, base }) {
+  const [bans, setBans] = useState(null);
+  const [banIp, setBanIp] = useState("");
+  const [banReason, setBanReason] = useState("");
+  const [banMsg, setBanMsg] = useState("");
+  const [banMsgType, setBanMsgType] = useState("ok");
+  const [showCheck, setShowCheck] = useState(false);
+  const [checkResult, setCheckResult] = useState(null);
+  const load = useCallback(async () => {
+    try {
+      const r = await fetch(`${base}/api/admin/bans`, { headers: authHeaders() });
+      if (r.status === 401 || r.status === 403) return;
+      setBans(await r.json());
+    } catch {
+    }
+  }, [base, authHeaders]);
+  useEffect(() => {
+    load();
+  }, [load]);
   const handleBan = async () => {
     if (!banIp.trim()) return;
     setBanMsg("");
@@ -647,10 +754,7 @@ function AdminPanel({ onClose }) {
         body: JSON.stringify({ ip: banIp.trim(), reason: banReason.trim() || "Baneado desde panel admin" })
       });
       const data = await r.json();
-      if (r.status === 401 || r.status === 403) {
-        setToken(null);
-        return;
-      }
+      if (r.status === 401 || r.status === 403) return;
       if (data.error) {
         setBanMsg(data.error);
         setBanMsgType("err");
@@ -659,8 +763,7 @@ function AdminPanel({ onClose }) {
         setBanMsgType("ok");
         setBanIp("");
         setBanReason("");
-        fetch(`${base}/api/admin/bans`, { headers: authHeaders() }).then((r2) => r2.json()).then((d) => setBans(d)).catch(() => {
-        });
+        load();
       }
     } catch {
       setBanMsg("❌ Error al conectar");
@@ -670,10 +773,7 @@ function AdminPanel({ onClose }) {
   const handleUnban = async (ip) => {
     try {
       const r = await fetch(`${base}/api/admin/bans/${ip}`, { method: "DELETE", headers: authHeaders() });
-      if (r.status === 401 || r.status === 403) {
-        setToken(null);
-        return;
-      }
+      if (r.status === 401 || r.status === 403) return;
       const data = await r.json();
       if (data.error) {
         setBanMsg(data.error);
@@ -681,8 +781,7 @@ function AdminPanel({ onClose }) {
       } else {
         setBanMsg(`✅ IP ${ip} desbloqueada`);
         setBanMsgType("ok");
-        fetch(`${base}/api/admin/bans`, { headers: authHeaders() }).then((r2) => r2.json()).then((d) => setBans(d)).catch(() => {
-        });
+        load();
       }
     } catch {
       setBanMsg("❌ Error al conectar");
@@ -692,22 +791,13 @@ function AdminPanel({ onClose }) {
   const handleCheckMyIp = async () => {
     try {
       const r = await fetch(`${base}/api/admin/bans/check`, { headers: authHeaders() });
-      if (r.status === 401 || r.status === 403) {
-        setToken(null);
-        return;
-      }
+      if (r.status === 401 || r.status === 403) return;
       setCheckResult(await r.json());
       setShowCheck(true);
     } catch {
       setCheckResult({ error: "Error al verificar" });
       setShowCheck(true);
     }
-  };
-  const handleLogout = () => {
-    setToken(null);
-    setPassword("");
-    setStats(null);
-    setBans(null);
   };
   const fmtTime = (ts) => {
     const d = new Date(ts * 1e3);
@@ -718,288 +808,107 @@ function AdminPanel({ onClose }) {
     if (secs <= 0) return "Expirado";
     return `${Math.floor(secs / 3600)}h ${Math.floor(secs % 3600 / 60)}m`;
   };
-  return /* @__PURE__ */ jsx("div", { className: "admin-overlay", onClick: onClose, children: /* @__PURE__ */ jsxs("div", { className: "admin-modal", onClick: (e) => e.stopPropagation(), children: [
-    /* @__PURE__ */ jsxs("div", { className: "admin-header", children: [
-      /* @__PURE__ */ jsx("i", { className: "fas fa-chart-simple" }),
-      /* @__PURE__ */ jsx("h2", { children: "Panel de administración" }),
-      /* @__PURE__ */ jsx("button", { className: "admin-close", onClick: onClose, children: /* @__PURE__ */ jsx("i", { className: "fas fa-xmark" }) })
+  return /* @__PURE__ */ jsxs(Fragment, { children: [
+    /* @__PURE__ */ jsxs("div", { className: "admin-section", children: [
+      /* @__PURE__ */ jsxs("h3", { children: [
+        /* @__PURE__ */ jsx("i", { className: "fas fa-ban" }),
+        " Bloquear una IP"
+      ] }),
+      /* @__PURE__ */ jsxs("div", { className: "ban-form", children: [
+        /* @__PURE__ */ jsx("input", { type: "text", className: "ban-input", placeholder: "Dirección IP (ej: 192.168.1.100)", value: banIp, onChange: (e) => setBanIp(e.target.value), onKeyDown: (e) => e.key === "Enter" && handleBan() }),
+        /* @__PURE__ */ jsx("input", { type: "text", className: "ban-input ban-input-reason", placeholder: "Motivo (opcional)", value: banReason, onChange: (e) => setBanReason(e.target.value), onKeyDown: (e) => e.key === "Enter" && handleBan() }),
+        /* @__PURE__ */ jsxs("button", { className: "ban-btn", onClick: handleBan, disabled: !banIp.trim(), children: [
+          /* @__PURE__ */ jsx("i", { className: "fas fa-lock" }),
+          " Bloquear"
+        ] })
+      ] }),
+      banMsg && /* @__PURE__ */ jsx("div", { className: `ban-msg ${banMsgType === "ok" ? "ban-msg-ok" : "ban-msg-err"}`, children: banMsg })
     ] }),
-    !token && /* @__PURE__ */ jsx("div", { className: "admin-body", children: /* @__PURE__ */ jsxs("div", { className: "admin-login", children: [
-      /* @__PURE__ */ jsx("div", { className: "admin-login-icon", children: /* @__PURE__ */ jsx("i", { className: "fas fa-lock" }) }),
-      /* @__PURE__ */ jsx("h3", { children: "Acceso restringido" }),
-      /* @__PURE__ */ jsx("p", { className: "admin-login-desc", children: "Introduce la contraseña de administrador para acceder al panel." }),
-      /* @__PURE__ */ jsx(
-        "input",
-        {
-          type: "password",
-          className: "admin-login-input",
-          placeholder: "Contraseña de administrador",
-          value: password,
-          onChange: (e) => setPassword(e.target.value),
-          onKeyDown: (e) => {
-            if (e.key === "Enter") handleLogin();
-          },
-          autoComplete: "off"
-        }
-      ),
-      loginError && /* @__PURE__ */ jsxs("div", { className: "admin-login-error", children: [
-        "❌ ",
-        loginError
+    /* @__PURE__ */ jsxs("div", { className: "admin-section", children: [
+      /* @__PURE__ */ jsxs("h3", { children: [
+        /* @__PURE__ */ jsx("i", { className: "fas fa-robot" }),
+        " Auto-ban automático"
       ] }),
-      /* @__PURE__ */ jsx("button", { className: "admin-login-btn", onClick: handleLogin, disabled: loginBusy || !password.trim(), children: loginBusy ? /* @__PURE__ */ jsxs(Fragment, { children: [
-        /* @__PURE__ */ jsx("i", { className: "fas fa-spinner fa-spin" }),
-        " Verificando..."
-      ] }) : /* @__PURE__ */ jsxs(Fragment, { children: [
-        /* @__PURE__ */ jsx("i", { className: "fas fa-right-to-bracket" }),
-        " Entrar"
-      ] }) })
-    ] }) }),
-    token && /* @__PURE__ */ jsxs(Fragment, { children: [
-      /* @__PURE__ */ jsxs("div", { className: "admin-tabs", children: [
-        /* @__PURE__ */ jsxs("button", { className: `admin-tab ${tab === "stats" ? "active" : ""}`, onClick: () => setTab("stats"), children: [
-          /* @__PURE__ */ jsx("i", { className: "fas fa-chart-simple" }),
-          " Estadísticas"
-        ] }),
-        /* @__PURE__ */ jsxs("button", { className: `admin-tab ${tab === "bans" ? "active" : ""}`, onClick: () => setTab("bans"), children: [
-          /* @__PURE__ */ jsx("i", { className: "fas fa-shield-halved" }),
-          " IPs Bloqueadas ",
-          bans && bans.total > 0 && /* @__PURE__ */ jsx("span", { className: "ban-badge", children: bans.total })
-        ] }),
-        /* @__PURE__ */ jsxs("button", { className: `admin-tab ${tab === "menus" ? "active" : ""}`, onClick: () => setTab("menus"), children: [
-          /* @__PURE__ */ jsx("i", { className: "fas fa-book" }),
-          " Cartas"
-        ] }),
-        /* @__PURE__ */ jsx("button", { className: "admin-tab admin-tab-logout", onClick: handleLogout, title: "Cerrar sesión", children: /* @__PURE__ */ jsx("i", { className: "fas fa-right-from-bracket" }) })
+      /* @__PURE__ */ jsxs("div", { className: "admin-row", children: [
+        /* @__PURE__ */ jsx("span", { children: "Estado" }),
+        /* @__PURE__ */ jsx("span", { className: "admin-val", style: { color: (bans == null ? void 0 : bans.auto_ban_enabled) ? "#059669" : "#ef4444" }, children: (bans == null ? void 0 : bans.auto_ban_enabled) ? "✅ Activado" : "❌ Desactivado" })
       ] }),
-      /* @__PURE__ */ jsxs("div", { className: "admin-body", children: [
-        tab === "stats" && /* @__PURE__ */ jsxs(Fragment, { children: [
-          loading && /* @__PURE__ */ jsxs("div", { className: "admin-loading", children: [
-            /* @__PURE__ */ jsx("i", { className: "fas fa-spinner fa-spin" }),
-            " Cargando..."
-          ] }),
-          error && /* @__PURE__ */ jsxs("div", { className: "admin-error", children: [
-            "⚠️ ",
-            error
-          ] }),
-          stats && /* @__PURE__ */ jsxs(Fragment, { children: [
-            /* @__PURE__ */ jsxs("div", { className: "admin-note", children: [
-              /* @__PURE__ */ jsx("i", { className: "fas fa-shield-halved" }),
-              "Datos totalmente anonimizados — no se muestran nombres, IPs ni códigos de sesión"
-            ] }),
-            /* @__PURE__ */ jsxs("div", { className: "admin-metrics", children: [
-              /* @__PURE__ */ jsxs("div", { className: "metric-card", children: [
-                /* @__PURE__ */ jsx("span", { className: "metric-icon", children: /* @__PURE__ */ jsx("i", { className: "fas fa-users" }) }),
-                /* @__PURE__ */ jsx("span", { className: "metric-value", children: fmt(stats.totals.active_sessions) }),
-                /* @__PURE__ */ jsx("span", { className: "metric-label", children: "Sesiones activas" })
-              ] }),
-              /* @__PURE__ */ jsxs("div", { className: "metric-card", children: [
-                /* @__PURE__ */ jsx("span", { className: "metric-icon", children: /* @__PURE__ */ jsx("i", { className: "fas fa-cube" }) }),
-                /* @__PURE__ */ jsx("span", { className: "metric-value", children: fmt(stats.totals.total_items) }),
-                /* @__PURE__ */ jsx("span", { className: "metric-label", children: "Items totales" })
-              ] }),
-              /* @__PURE__ */ jsxs("div", { className: "metric-card", children: [
-                /* @__PURE__ */ jsx("span", { className: "metric-icon", children: /* @__PURE__ */ jsx("i", { className: "fas fa-user" }) }),
-                /* @__PURE__ */ jsx("span", { className: "metric-value", children: fmt(stats.totals.total_persons) }),
-                /* @__PURE__ */ jsx("span", { className: "metric-label", children: "Personas" })
-              ] }),
-              /* @__PURE__ */ jsxs("div", { className: "metric-card", children: [
-                /* @__PURE__ */ jsx("span", { className: "metric-icon", children: /* @__PURE__ */ jsx("i", { className: "fas fa-wifi" }) }),
-                /* @__PURE__ */ jsx("span", { className: "metric-value", children: fmt(stats.ws_connected) }),
-                /* @__PURE__ */ jsx("span", { className: "metric-label", children: "Conectados ahora" })
-              ] })
-            ] }),
-            /* @__PURE__ */ jsxs("div", { className: "admin-section", children: [
-              /* @__PURE__ */ jsxs("h3", { children: [
-                /* @__PURE__ */ jsx("i", { className: "fas fa-clock" }),
-                " Sesiones creadas"
-              ] }),
-              ["sessions_24h", "sessions_7d", "total_sessions"].map((k) => /* @__PURE__ */ jsxs("div", { className: "admin-row", children: [
-                /* @__PURE__ */ jsx("span", { children: k === "sessions_24h" ? "Últimas 24h" : k === "sessions_7d" ? "Últimos 7 días" : "Total histórico" }),
-                /* @__PURE__ */ jsx("div", { className: "admin-bar-bg", children: /* @__PURE__ */ jsx("div", { className: "admin-bar", style: { width: `${k === "total_sessions" ? 100 : barWidth(stats.totals[k], stats.totals.total_sessions)}%` } }) }),
-                /* @__PURE__ */ jsx("span", { className: "admin-val", children: fmt(stats.totals[k]) })
-              ] }, k))
-            ] }),
-            /* @__PURE__ */ jsxs("div", { className: "admin-section", children: [
-              /* @__PURE__ */ jsxs("h3", { children: [
-                /* @__PURE__ */ jsx("i", { className: "fas fa-cart-shopping" }),
-                " Pedidos"
-              ] }),
-              /* @__PURE__ */ jsxs("div", { className: "admin-row", children: [
-                /* @__PURE__ */ jsx("span", { children: "Items últimas 24h" }),
-                /* @__PURE__ */ jsx("div", { className: "admin-bar-bg", children: /* @__PURE__ */ jsx("div", { className: "admin-bar", style: { width: `${barWidth(stats.totals.items_24h, stats.totals.total_items)}%` } }) }),
-                /* @__PURE__ */ jsx("span", { className: "admin-val", children: fmt(stats.totals.items_24h) })
-              ] }),
-              /* @__PURE__ */ jsxs("div", { className: "admin-row", children: [
-                /* @__PURE__ */ jsx("span", { children: "Media items/persona" }),
-                /* @__PURE__ */ jsx("div", { className: "admin-bar-bg", children: /* @__PURE__ */ jsx("div", { className: "admin-bar", style: { width: `${Math.min(stats.totals.avg_items_per_person * 6, 100)}%` } }) }),
-                /* @__PURE__ */ jsx("span", { className: "admin-val", children: stats.totals.avg_items_per_person })
-              ] }),
-              /* @__PURE__ */ jsxs("div", { className: "admin-row", children: [
-                /* @__PURE__ */ jsx("span", { children: "Media personas/sesión" }),
-                /* @__PURE__ */ jsx("div", { className: "admin-bar-bg", children: /* @__PURE__ */ jsx("div", { className: "admin-bar", style: { width: `${Math.min(stats.totals.avg_people_per_session * 20, 100)}%` } }) }),
-                /* @__PURE__ */ jsx("span", { className: "admin-val", children: stats.totals.avg_people_per_session })
-              ] })
-            ] }),
-            stats.categories.length > 0 && /* @__PURE__ */ jsxs("div", { className: "admin-section", children: [
-              /* @__PURE__ */ jsxs("h3", { children: [
-                /* @__PURE__ */ jsx("i", { className: "fas fa-chart-pie" }),
-                " Categorías más pedidas"
-              ] }),
-              stats.categories.slice(0, 10).map((c) => {
-                const max = stats.categories[0].count;
-                return /* @__PURE__ */ jsxs("div", { className: "admin-row", children: [
-                  /* @__PURE__ */ jsx("span", { children: CAT_LABELS[c.category] || c.category }),
-                  /* @__PURE__ */ jsx("div", { className: "admin-bar-bg", children: /* @__PURE__ */ jsx("div", { className: "admin-bar cat-bar", style: { width: `${barWidth(c.count, max)}%` } }) }),
-                  /* @__PURE__ */ jsx("span", { className: "admin-val", children: fmt(c.count) })
-                ] }, c.category);
-              })
-            ] }),
-            stats.hourly_activity.length > 0 && /* @__PURE__ */ jsxs("div", { className: "admin-section", children: [
-              /* @__PURE__ */ jsxs("h3", { children: [
-                /* @__PURE__ */ jsx("i", { className: "fas fa-chart-line" }),
-                " Actividad por hora"
-              ] }),
-              /* @__PURE__ */ jsx("div", { className: "admin-hourly-grid", children: Array.from({ length: 24 }, (_, h) => {
-                const found = stats.hourly_activity.find((a) => a.hour === h);
-                const count = found ? found.count : 0;
-                const peak = Math.max(...stats.hourly_activity.map((a) => a.count), 1);
-                return /* @__PURE__ */ jsxs("div", { className: "hour-bar-wrap", children: [
-                  /* @__PURE__ */ jsx("div", { className: "hour-bar", style: { height: `${barWidth(count, peak)}%` }, title: `${h}:00 — ${count} sesiones` }),
-                  /* @__PURE__ */ jsx("span", { className: "hour-label", children: h })
-                ] }, h);
-              }) })
-            ] }),
-            /* @__PURE__ */ jsxs("div", { className: "admin-section", children: [
-              /* @__PURE__ */ jsxs("h3", { children: [
-                /* @__PURE__ */ jsx("i", { className: "fas fa-plug" }),
-                " Conexiones en vivo"
-              ] }),
-              /* @__PURE__ */ jsxs("div", { className: "admin-row", children: [
-                /* @__PURE__ */ jsx("span", { children: "WebSockets activos" }),
-                /* @__PURE__ */ jsx("span", { className: "admin-val", children: fmt(stats.ws_connected) })
-              ] }),
-              /* @__PURE__ */ jsxs("div", { className: "admin-row", children: [
-                /* @__PURE__ */ jsx("span", { children: "Salas activas" }),
-                /* @__PURE__ */ jsx("span", { className: "admin-val", children: fmt(stats.ws_rooms) })
-              ] })
-            ] }),
-            /* @__PURE__ */ jsxs("div", { className: "admin-footer", children: [
-              /* @__PURE__ */ jsxs("p", { children: [
-                /* @__PURE__ */ jsx("i", { className: "fas fa-database" }),
-                " Todos los datos son agregados y anónimos"
-              ] }),
-              /* @__PURE__ */ jsxs("p", { children: [
-                /* @__PURE__ */ jsx("i", { className: "fas fa-trash-can" }),
-                " Datos eliminados automáticamente a los 5 días"
-              ] })
-            ] })
-          ] })
-        ] }),
-        tab === "bans" && /* @__PURE__ */ jsxs(Fragment, { children: [
-          /* @__PURE__ */ jsxs("div", { className: "admin-section", children: [
-            /* @__PURE__ */ jsxs("h3", { children: [
-              /* @__PURE__ */ jsx("i", { className: "fas fa-ban" }),
-              " Bloquear una IP"
-            ] }),
-            /* @__PURE__ */ jsxs("div", { className: "ban-form", children: [
-              /* @__PURE__ */ jsx("input", { type: "text", className: "ban-input", placeholder: "Dirección IP (ej: 192.168.1.100)", value: banIp, onChange: (e) => setBanIp(e.target.value), onKeyDown: (e) => e.key === "Enter" && handleBan() }),
-              /* @__PURE__ */ jsx("input", { type: "text", className: "ban-input ban-input-reason", placeholder: "Motivo (opcional)", value: banReason, onChange: (e) => setBanReason(e.target.value), onKeyDown: (e) => e.key === "Enter" && handleBan() }),
-              /* @__PURE__ */ jsxs("button", { className: "ban-btn", onClick: handleBan, disabled: !banIp.trim(), children: [
-                /* @__PURE__ */ jsx("i", { className: "fas fa-lock" }),
-                " Bloquear"
-              ] })
-            ] }),
-            banMsg && /* @__PURE__ */ jsx("div", { className: `ban-msg ${banMsgType === "ok" ? "ban-msg-ok" : "ban-msg-err"}`, children: banMsg })
-          ] }),
-          /* @__PURE__ */ jsxs("div", { className: "admin-section", children: [
-            /* @__PURE__ */ jsxs("h3", { children: [
-              /* @__PURE__ */ jsx("i", { className: "fas fa-robot" }),
-              " Auto-ban automático"
-            ] }),
-            /* @__PURE__ */ jsxs("div", { className: "admin-row", children: [
-              /* @__PURE__ */ jsx("span", { children: "Estado" }),
-              /* @__PURE__ */ jsx("span", { className: "admin-val", style: { color: (bans == null ? void 0 : bans.auto_ban_enabled) ? "#059669" : "#ef4444" }, children: (bans == null ? void 0 : bans.auto_ban_enabled) ? "✅ Activado" : "❌ Desactivado" })
-            ] }),
-            /* @__PURE__ */ jsxs("div", { className: "admin-row", children: [
-              /* @__PURE__ */ jsx("span", { children: "Violaciones para auto-ban" }),
-              /* @__PURE__ */ jsx("span", { className: "admin-val", children: (bans == null ? void 0 : bans.auto_ban_threshold) || 5 })
-            ] }),
-            /* @__PURE__ */ jsxs("div", { className: "admin-row", children: [
-              /* @__PURE__ */ jsx("span", { children: "Duración del auto-ban" }),
-              /* @__PURE__ */ jsxs("span", { className: "admin-val", children: [
-                (bans == null ? void 0 : bans.auto_ban_duration_h) || 24,
-                "h"
-              ] })
-            ] }),
-            /* @__PURE__ */ jsxs("p", { className: "ban-desc", children: [
-              /* @__PURE__ */ jsx("i", { className: "fas fa-info-circle" }),
-              " Si una IP excede el límite de peticiones más de ",
-              (bans == null ? void 0 : bans.auto_ban_threshold) || 5,
-              " veces en 10 minutos, se bloquea automáticamente durante ",
-              (bans == null ? void 0 : bans.auto_ban_duration_h) || 24,
-              " horas."
-            ] })
-          ] }),
-          /* @__PURE__ */ jsxs("div", { className: "admin-section", children: [
-            /* @__PURE__ */ jsxs("h3", { children: [
-              /* @__PURE__ */ jsx("i", { className: "fas fa-search" }),
-              " Verificar mi IP"
-            ] }),
-            /* @__PURE__ */ jsxs("button", { className: "ban-check-btn", onClick: handleCheckMyIp, children: [
-              /* @__PURE__ */ jsx("i", { className: "fas fa-shield" }),
-              " Comprobar mi dirección IP"
-            ] }),
-            showCheck && checkResult && /* @__PURE__ */ jsxs("div", { className: `ban-check-result ${checkResult.banned ? "banned" : "not-banned"}`, children: [
-              checkResult.error ? /* @__PURE__ */ jsxs("span", { children: [
-                "❌ ",
-                checkResult.error
-              ] }) : checkResult.banned ? /* @__PURE__ */ jsxs("span", { children: [
-                "🚫 ",
-                /* @__PURE__ */ jsx("strong", { children: "IP bloqueada:" }),
-                " ",
-                checkResult.reason
-              ] }) : /* @__PURE__ */ jsxs("span", { children: [
-                "✅ ",
-                /* @__PURE__ */ jsx("strong", { children: "IP limpia." }),
-                " No estás bloqueado."
-              ] }),
-              checkResult.your_ip && !checkResult.error && /* @__PURE__ */ jsxs("span", { className: "ban-check-ip", children: [
-                "Tu IP: ",
-                /* @__PURE__ */ jsx("code", { children: checkResult.your_ip })
-              ] })
-            ] })
-          ] }),
-          /* @__PURE__ */ jsxs("div", { className: "admin-section", children: [
-            /* @__PURE__ */ jsxs("h3", { children: [
-              /* @__PURE__ */ jsx("i", { className: "fas fa-list" }),
-              " IPs bloqueadas ",
-              bans && bans.total > 0 && /* @__PURE__ */ jsx("span", { className: "ban-count", children: bans.total })
-            ] }),
-            !bans || bans.bans.length === 0 ? /* @__PURE__ */ jsxs("p", { className: "ban-empty", children: [
-              /* @__PURE__ */ jsx("i", { className: "fas fa-check-circle", style: { color: "#059669" } }),
-              " No hay IPs bloqueadas"
-            ] }) : /* @__PURE__ */ jsx("div", { className: "ban-list", children: bans.bans.map((b) => /* @__PURE__ */ jsxs("div", { className: `ban-item ${b.auto_ban ? "auto" : "manual"}`, children: [
-              /* @__PURE__ */ jsxs("div", { className: "ban-item-left", children: [
-                /* @__PURE__ */ jsx("span", { className: "ban-ip", children: /* @__PURE__ */ jsx("code", { children: b.ip }) }),
-                /* @__PURE__ */ jsx("span", { className: "ban-reason", children: b.reason }),
-                /* @__PURE__ */ jsxs("span", { className: "ban-meta", children: [
-                  /* @__PURE__ */ jsx("i", { className: "fas fa-clock" }),
-                  " ",
-                  fmtTime(b.banned_at),
-                  b.auto_ban ? " · Auto" : " · Manual",
-                  b.expires_in !== null ? ` · Expira: ${fmtExpires(b.expires_in)}` : " · Permanente"
-                ] })
-              ] }),
-              /* @__PURE__ */ jsx("button", { className: "ban-unban-btn", onClick: () => handleUnban(b.ip), title: "Desbloquear IP", children: /* @__PURE__ */ jsx("i", { className: "fas fa-unlock" }) })
-            ] }, b.ip)) })
-          ] })
-        ] }),
-        tab === "menus" && /* @__PURE__ */ jsx(AdminMenuManager, { authHeaders, base })
+      /* @__PURE__ */ jsxs("div", { className: "admin-row", children: [
+        /* @__PURE__ */ jsx("span", { children: "Violaciones para auto-ban" }),
+        /* @__PURE__ */ jsx("span", { className: "admin-val", children: (bans == null ? void 0 : bans.auto_ban_threshold) || 5 })
+      ] }),
+      /* @__PURE__ */ jsxs("div", { className: "admin-row", children: [
+        /* @__PURE__ */ jsx("span", { children: "Duración del auto-ban" }),
+        /* @__PURE__ */ jsxs("span", { className: "admin-val", children: [
+          (bans == null ? void 0 : bans.auto_ban_duration_h) || 24,
+          "h"
+        ] })
+      ] }),
+      /* @__PURE__ */ jsxs("p", { className: "ban-desc", children: [
+        /* @__PURE__ */ jsx("i", { className: "fas fa-info-circle" }),
+        " Si una IP excede el límite de peticiones más de ",
+        (bans == null ? void 0 : bans.auto_ban_threshold) || 5,
+        " veces en 10 minutos, se bloquea automáticamente durante ",
+        (bans == null ? void 0 : bans.auto_ban_duration_h) || 24,
+        " horas."
       ] })
+    ] }),
+    /* @__PURE__ */ jsxs("div", { className: "admin-section", children: [
+      /* @__PURE__ */ jsxs("h3", { children: [
+        /* @__PURE__ */ jsx("i", { className: "fas fa-search" }),
+        " Verificar mi IP"
+      ] }),
+      /* @__PURE__ */ jsxs("button", { className: "ban-check-btn", onClick: handleCheckMyIp, children: [
+        /* @__PURE__ */ jsx("i", { className: "fas fa-shield" }),
+        " Comprobar mi dirección IP"
+      ] }),
+      showCheck && checkResult && /* @__PURE__ */ jsxs("div", { className: `ban-check-result ${checkResult.banned ? "banned" : "not-banned"}`, children: [
+        checkResult.error ? /* @__PURE__ */ jsxs("span", { children: [
+          "❌ ",
+          checkResult.error
+        ] }) : checkResult.banned ? /* @__PURE__ */ jsxs("span", { children: [
+          "🚫 ",
+          /* @__PURE__ */ jsx("strong", { children: "IP bloqueada:" }),
+          " ",
+          checkResult.reason
+        ] }) : /* @__PURE__ */ jsxs("span", { children: [
+          "✅ ",
+          /* @__PURE__ */ jsx("strong", { children: "IP limpia." }),
+          " No estás bloqueado."
+        ] }),
+        checkResult.your_ip && !checkResult.error && /* @__PURE__ */ jsxs("span", { className: "ban-check-ip", children: [
+          "Tu IP: ",
+          /* @__PURE__ */ jsx("code", { children: checkResult.your_ip })
+        ] })
+      ] })
+    ] }),
+    /* @__PURE__ */ jsxs("div", { className: "admin-section", children: [
+      /* @__PURE__ */ jsxs("h3", { children: [
+        /* @__PURE__ */ jsx("i", { className: "fas fa-list" }),
+        " IPs bloqueadas ",
+        bans && bans.total > 0 && /* @__PURE__ */ jsx("span", { className: "ban-count", children: bans.total })
+      ] }),
+      !bans || bans.bans.length === 0 ? /* @__PURE__ */ jsxs("p", { className: "ban-empty", children: [
+        /* @__PURE__ */ jsx("i", { className: "fas fa-check-circle", style: { color: "#059669" } }),
+        " No hay IPs bloqueadas"
+      ] }) : /* @__PURE__ */ jsx("div", { className: "ban-list", children: bans.bans.map((b) => /* @__PURE__ */ jsxs("div", { className: `ban-item ${b.auto_ban ? "auto" : "manual"}`, children: [
+        /* @__PURE__ */ jsxs("div", { className: "ban-item-left", children: [
+          /* @__PURE__ */ jsx("span", { className: "ban-ip", children: /* @__PURE__ */ jsx("code", { children: b.ip }) }),
+          /* @__PURE__ */ jsx("span", { className: "ban-reason", children: b.reason }),
+          /* @__PURE__ */ jsxs("span", { className: "ban-meta", children: [
+            /* @__PURE__ */ jsx("i", { className: "fas fa-clock" }),
+            " ",
+            fmtTime(b.banned_at),
+            b.auto_ban ? " · Auto" : " · Manual",
+            b.expires_in !== null ? ` · Expira: ${fmtExpires(b.expires_in)}` : " · Permanente"
+          ] })
+        ] }),
+        /* @__PURE__ */ jsx("button", { className: "ban-unban-btn", onClick: () => handleUnban(b.ip), title: "Desbloquear IP", children: /* @__PURE__ */ jsx("i", { className: "fas fa-unlock" }) })
+      ] }, b.ip)) })
     ] })
-  ] }) });
+  ] });
 }
-function AdminMenuManager({ authHeaders, base: base2 }) {
+function AdminMenus({ authHeaders, base }) {
   const [menus, setMenus] = useState([]);
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState("");
@@ -1010,7 +919,7 @@ function AdminMenuManager({ authHeaders, base: base2 }) {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const r = await fetch(`${base2}/api/admin/menus`, { headers: authHeaders() });
+      const r = await fetch(`${base}/api/admin/menus`, { headers: authHeaders() });
       if (r.status === 401 || r.status === 403) return;
       setMenus(await r.json());
     } catch {
@@ -1018,7 +927,7 @@ function AdminMenuManager({ authHeaders, base: base2 }) {
       setMsgType("err");
     }
     setLoading(false);
-  }, [base2, authHeaders]);
+  }, [base, authHeaders]);
   useEffect(() => {
     load();
   }, [load]);
@@ -1026,7 +935,7 @@ function AdminMenuManager({ authHeaders, base: base2 }) {
     if (!newName.trim() || !newSlug.trim()) return;
     setMsg("");
     try {
-      const r = await fetch(`${base2}/api/admin/menus`, {
+      const r = await fetch(`${base}/api/admin/menus`, {
         method: "POST",
         headers: authHeaders(),
         body: JSON.stringify({ name: newName.trim(), slug: newSlug.trim(), description: newDesc.trim() })
@@ -1050,7 +959,7 @@ function AdminMenuManager({ authHeaders, base: base2 }) {
   };
   const handleActivate = async (id) => {
     try {
-      const r = await fetch(`${base2}/api/admin/menus/${id}/activate`, { method: "POST", headers: authHeaders() });
+      const r = await fetch(`${base}/api/admin/menus/${id}/activate`, { method: "POST", headers: authHeaders() });
       const data = await r.json();
       if (data.error) {
         setMsg(data.error);
@@ -1068,7 +977,7 @@ function AdminMenuManager({ authHeaders, base: base2 }) {
   const handleDelete = async (id, name) => {
     if (!window.confirm(`¿Eliminar la carta "${name}"?`)) return;
     try {
-      const r = await fetch(`${base2}/api/admin/menus/${id}`, { method: "DELETE", headers: authHeaders() });
+      const r = await fetch(`${base}/api/admin/menus/${id}`, { method: "DELETE", headers: authHeaders() });
       const data = await r.json();
       if (data.error) {
         setMsg(data.error);
@@ -1166,6 +1075,46 @@ function AdminMenuManager({ authHeaders, base: base2 }) {
       "Al activar una carta, se desactiva automáticamente la anterior. Los cambios se reflejan al instante en la app."
     ] })
   ] });
+}
+function AdminPanel({ onClose }) {
+  const [token, setToken] = useState(null);
+  const [tab, setTab] = useState("stats");
+  const base = window.location.origin;
+  const authHeaders = useCallback(() => ({
+    "Content-Type": "application/json",
+    "Authorization": `Bearer ${token}`
+  }), [token]);
+  const handleLogout = () => setToken(null);
+  return /* @__PURE__ */ jsx("div", { className: "admin-overlay", onClick: onClose, children: /* @__PURE__ */ jsxs("div", { className: "admin-modal", onClick: (e) => e.stopPropagation(), children: [
+    /* @__PURE__ */ jsxs("div", { className: "admin-header", children: [
+      /* @__PURE__ */ jsx("i", { className: "fas fa-chart-simple" }),
+      /* @__PURE__ */ jsx("h2", { children: "Panel de administración" }),
+      /* @__PURE__ */ jsx("button", { className: "admin-close", onClick: onClose, children: /* @__PURE__ */ jsx("i", { className: "fas fa-xmark" }) })
+    ] }),
+    !token && /* @__PURE__ */ jsx(AdminLogin, { onLogin: setToken }),
+    token && /* @__PURE__ */ jsxs(Fragment, { children: [
+      /* @__PURE__ */ jsxs("div", { className: "admin-tabs", children: [
+        /* @__PURE__ */ jsxs("button", { className: `admin-tab ${tab === "stats" ? "active" : ""}`, onClick: () => setTab("stats"), children: [
+          /* @__PURE__ */ jsx("i", { className: "fas fa-chart-simple" }),
+          " Estadísticas"
+        ] }),
+        /* @__PURE__ */ jsxs("button", { className: `admin-tab ${tab === "bans" ? "active" : ""}`, onClick: () => setTab("bans"), children: [
+          /* @__PURE__ */ jsx("i", { className: "fas fa-shield-halved" }),
+          " IPs Bloqueadas"
+        ] }),
+        /* @__PURE__ */ jsxs("button", { className: `admin-tab ${tab === "menus" ? "active" : ""}`, onClick: () => setTab("menus"), children: [
+          /* @__PURE__ */ jsx("i", { className: "fas fa-book" }),
+          " Cartas"
+        ] }),
+        /* @__PURE__ */ jsx("button", { className: "admin-tab admin-tab-logout", onClick: handleLogout, title: "Cerrar sesión", children: /* @__PURE__ */ jsx("i", { className: "fas fa-right-from-bracket" }) })
+      ] }),
+      /* @__PURE__ */ jsxs("div", { className: "admin-body", children: [
+        tab === "stats" && /* @__PURE__ */ jsx(AdminStats, { authHeaders, base }),
+        tab === "bans" && /* @__PURE__ */ jsx(AdminBans, { authHeaders, base }),
+        tab === "menus" && /* @__PURE__ */ jsx(AdminMenus, { authHeaders, base })
+      ] })
+    ] })
+  ] }) });
 }
 function LoginScreen({ onLogin }) {
   const [name, setName] = useState("");
@@ -1593,29 +1542,27 @@ function QRModal({ open, onClose, sessionUrl }) {
     }
   }, [open, sessionUrl]);
   if (!open) return null;
-  return /* @__PURE__ */ jsx("div", { className: "qr-overlay open", onClick: onClose, children: /* @__PURE__ */ jsxs("div", { className: "qr-card", onClick: (e) => e.stopPropagation(), children: [
-    /* @__PURE__ */ jsxs("h3", { children: [
-      /* @__PURE__ */ jsx("i", { className: "fas fa-qrcode", style: { color: "#2563eb" } }),
-      " Escanea para unirte"
+  return /* @__PURE__ */ jsx("div", { className: "modal-overlay", onClick: onClose, children: /* @__PURE__ */ jsxs("div", { className: "modal-box", onClick: (e) => e.stopPropagation(), children: [
+    /* @__PURE__ */ jsxs("div", { className: "modal-header", children: [
+      /* @__PURE__ */ jsx("i", { className: "fas fa-qrcode" }),
+      /* @__PURE__ */ jsx("h2", { children: "Escanea para unirte" }),
+      /* @__PURE__ */ jsx("button", { className: "modal-close", onClick: onClose, children: /* @__PURE__ */ jsx("i", { className: "fas fa-xmark" }) })
     ] }),
-    /* @__PURE__ */ jsx("div", { className: "qr-sub", children: "Abre la cámara y escanea este código" }),
-    /* @__PURE__ */ jsx("div", { ref: qrRef, id: "qrContainer" }),
-    /* @__PURE__ */ jsx("div", { className: "qr-url", children: sessionUrl }),
-    /* @__PURE__ */ jsxs("button", { className: "qr-close", onClick: onClose, children: [
-      /* @__PURE__ */ jsx("i", { className: "fas fa-times" }),
-      " Cerrar"
+    /* @__PURE__ */ jsxs("div", { className: "modal-body", children: [
+      /* @__PURE__ */ jsx("div", { className: "qr-code-wrap", children: /* @__PURE__ */ jsx("div", { ref: qrRef }) }),
+      /* @__PURE__ */ jsx("div", { className: "qr-link", children: /* @__PURE__ */ jsx("a", { href: sessionUrl, target: "_blank", rel: "noopener", children: sessionUrl }) })
     ] })
   ] }) });
 }
 function PrivacyModal({ open, onClose }) {
   if (!open) return null;
-  return /* @__PURE__ */ jsx("div", { className: "privacy-overlay", onClick: onClose, children: /* @__PURE__ */ jsxs("div", { className: "privacy-modal", onClick: (e) => e.stopPropagation(), children: [
-    /* @__PURE__ */ jsxs("div", { className: "privacy-header", children: [
-      /* @__PURE__ */ jsx("i", { className: "fas fa-shield-halved" }),
+  return /* @__PURE__ */ jsx("div", { className: "modal-overlay", onClick: onClose, children: /* @__PURE__ */ jsxs("div", { className: "admin-modal", style: { maxWidth: 600 }, onClick: (e) => e.stopPropagation(), children: [
+    /* @__PURE__ */ jsxs("div", { className: "admin-header", style: { background: "linear-gradient(135deg, #1e3a5f, #2d6a9f)" }, children: [
+      /* @__PURE__ */ jsx("i", { className: "fas fa-shield-halved", style: { color: "#fbbf24" } }),
       /* @__PURE__ */ jsx("h2", { children: "Aviso Legal y Privacidad" }),
-      /* @__PURE__ */ jsx("button", { className: "privacy-close", onClick: onClose, children: /* @__PURE__ */ jsx("i", { className: "fas fa-xmark" }) })
+      /* @__PURE__ */ jsx("button", { className: "admin-close", onClick: onClose, children: /* @__PURE__ */ jsx("i", { className: "fas fa-xmark" }) })
     ] }),
-    /* @__PURE__ */ jsxs("div", { className: "privacy-body", children: [
+    /* @__PURE__ */ jsx("div", { className: "admin-body", children: /* @__PURE__ */ jsxs("div", { className: "modal-privacy-content", children: [
       /* @__PURE__ */ jsxs("section", { children: [
         /* @__PURE__ */ jsxs("h3", { children: [
           /* @__PURE__ */ jsx("i", { className: "fas fa-database" }),
@@ -1673,8 +1620,7 @@ function PrivacyModal({ open, onClose }) {
             /* @__PURE__ */ jsx("strong", { children: "totalmente anonimizados" }),
             ": no incluyen nombres de usuario, IPs, códigos de sesión ni ningún dato que permita identificar a personas concretas."
           ] }),
-          /* @__PURE__ */ jsx("li", { children: "Las estadísticas se usan únicamente para entender el funcionamiento del servicio y mejorar la experiencia." }),
-          /* @__PURE__ */ jsx("li", { children: "Consulta métricas de uso totalmente anonimizadas desde el panel de administración (protegido con contraseña)." })
+          /* @__PURE__ */ jsx("li", { children: "Las estadísticas se usan únicamente para entender el funcionamiento del servicio y mejorar la experiencia." })
         ] })
       ] }),
       /* @__PURE__ */ jsxs("section", { children: [
@@ -1701,39 +1647,13 @@ function PrivacyModal({ open, onClose }) {
             " durante 24 horas."
           ] }),
           /* @__PURE__ */ jsx("li", { children: "Los administradores pueden bloquear manualmente IPs que se comporten de forma maliciosa." }),
-          /* @__PURE__ */ jsx("li", { children: 'Las IPs bloqueadas reciben un mensaje de "Acceso denegado" sin exponer información adicional.' }),
           /* @__PURE__ */ jsx("li", { children: "Cualquier usuario puede verificar si su IP está bloqueada desde el panel de administración." })
         ] })
-      ] }),
-      /* @__PURE__ */ jsxs("div", { className: "privacy-footer-legal", children: [
-        /* @__PURE__ */ jsxs("p", { children: [
-          /* @__PURE__ */ jsx("i", { className: "fas fa-calendar" }),
-          " Los datos se eliminan automáticamente a los 5 días"
-        ] }),
-        /* @__PURE__ */ jsxs("p", { children: [
-          /* @__PURE__ */ jsx("i", { className: "fas fa-lock" }),
-          " Conexiones cifradas mediante HTTPS (SSL/TLS)"
-        ] }),
-        /* @__PURE__ */ jsxs("p", { children: [
-          /* @__PURE__ */ jsx("i", { className: "fas fa-server" }),
-          " Datos almacenados en servidor privado, sin acceso de terceros"
-        ] }),
-        /* @__PURE__ */ jsxs("p", { children: [
-          /* @__PURE__ */ jsx("i", { className: "fas fa-chart-simple" }),
-          " Estadísticas anónimas visibles en el panel de administración"
-        ] }),
-        /* @__PURE__ */ jsxs("p", { children: [
-          /* @__PURE__ */ jsx("i", { className: "fas fa-shield" }),
-          " IPs maliciosas bloqueadas automática y manualmente"
-        ] })
       ] })
-    ] })
+    ] }) })
   ] }) });
 }
 function ToastContainer({ toasts }) {
-  const [exiting, setExiting] = useState(/* @__PURE__ */ new Set());
-  useEffect(() => {
-  }, [toasts.length]);
   if (toasts.length === 0) return null;
   return /* @__PURE__ */ jsx("div", { className: "toast-container", children: toasts.map((t) => {
     const typeClass = `toast-${t.type}`;
@@ -1741,7 +1661,7 @@ function ToastContainer({ toasts }) {
     if (t.type === "add") icon = "fa-circle-plus";
     else if (t.type === "remove") icon = "fa-circle-minus";
     else if (t.type === "update") icon = "fa-pen-to-square";
-    return /* @__PURE__ */ jsxs("div", { className: `toast-item ${typeClass}`, children: [
+    return /* @__PURE__ */ jsxs("div", { className: `toast ${typeClass}`, children: [
       /* @__PURE__ */ jsx("i", { className: `fas ${icon}` }),
       " ",
       t.message
@@ -1749,7 +1669,7 @@ function ToastContainer({ toasts }) {
   }) });
 }
 let toastId = 0;
-function OrderApp() {
+function OrderPage() {
   var _a;
   const [sessionCode, setSessionCode] = useState("");
   const [myName, setMyName] = useState("");
@@ -1760,6 +1680,7 @@ function OrderApp() {
   const [loading, setLoading] = useState(true);
   const [qrOpen, setQrOpen] = useState(false);
   const [privacyOpen, setPrivacyOpen] = useState(false);
+  const [showAdmin, setShowAdmin] = useState(false);
   const [toasts, setToasts] = useState([]);
   const wsRef = useRef(null);
   useRef([]);
@@ -2155,14 +2076,15 @@ function OrderApp() {
         onClose: () => setPrivacyOpen(false)
       }
     ),
-    /* @__PURE__ */ jsx(ToastContainer, { toasts })
+    /* @__PURE__ */ jsx(ToastContainer, { toasts }),
+    showAdmin && /* @__PURE__ */ jsx(AdminPanel, { onClose: () => setShowAdmin(false) })
   ] });
 }
 function App() {
   return /* @__PURE__ */ jsxs(Routes, { children: [
     /* @__PURE__ */ jsx(Route, { path: "/", element: /* @__PURE__ */ jsx(LandingPage, {}) }),
-    /* @__PURE__ */ jsx(Route, { path: "/app", element: /* @__PURE__ */ jsx(OrderApp, {}) }),
-    /* @__PURE__ */ jsx(Route, { path: "/app/*", element: /* @__PURE__ */ jsx(OrderApp, {}) })
+    /* @__PURE__ */ jsx(Route, { path: "/app", element: /* @__PURE__ */ jsx(OrderPage, {}) }),
+    /* @__PURE__ */ jsx(Route, { path: "/app/*", element: /* @__PURE__ */ jsx(OrderPage, {}) })
   ] });
 }
 function createApp(url, helmetContext) {

@@ -1,5 +1,7 @@
 import { useMemo } from 'react';
-import { Person, CATEGORY_LABELS, getKey, getPrice, parsePrice } from '../types';
+import { Person } from '../types';
+import { CATEGORY_LABELS } from '../data/menuData';
+import { getKey, getPrice, parsePrice } from '../services/menuStore';
 
 interface Props {
   currentPerson: Person | null;
